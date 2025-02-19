@@ -1,0 +1,119 @@
+api:
+  anthropic:
+    model: "claude-3-5-sonnet-20240620"
+    max_retries: 3
+    base_delay: 4
+    max_delay: 60
+    concurrent_limit: 3
+    batch_size: 5
+    pricing:
+      base_input: 3.00
+      cache_write: 3.75
+      cache_read: 1.50
+      output: 15.00
+
+  cohere:
+    model: "embed-english-v3.0"
+    max_retries: 3
+    base_delay: 4
+    max_delay: 60
+
+paths:
+  input:
+    product_data: "/Users/aswinsreenivas/Projects/D2C Search Engine/uplyft_server/uplyft-shopify-scraper/data/02_intermediate/processed_dataframe.csv"
+    images_dir: "/Users/aswinsreenivas/Projects/D2C Search Engine/uplyft_server/uplyft-shopify-scraper/data/02_intermediate/images"
+  
+  output:
+    base_dir: "/Users/aswinsreenivas/Projects/D2C Search Engine/uplyft_server/product_attributes/output"
+    structure:
+      attributes: "{product_type}/attributes"
+      images: "{product_type}/images"
+    logs_dir: "logs"
+
+prompts:
+  dir: "config/prompts"
+  system_temperature: 0.1
+  max_tokens: 4096
+
+common_attributes:
+  required:
+    - brand
+    - brand_title
+    - title
+    - description
+    - price
+    - primary_color
+    - secondary_colors
+    - pattern
+    - material
+    - embellishment_level
+    - embellishment
+    - occasions
+    - style
+    - gender
+    - age_group
+
+validation_rules:
+  price:
+    min: 0
+    type: float
+  
+  primary_color:
+    type: string
+    enum_class: Color
+  
+  secondary_colors:
+    type: list
+    item_type: enum
+    values: Color
+    max_length: 3
+  
+  pattern:
+    type: enum
+    values: Pattern
+  
+  material:
+    type: string
+  
+  embellishment_level:
+    type: enum
+    values: EmbellishmentLevel
+  
+  embellishment:
+    type: list
+    item_type: enum
+    values: Embellishment
+    max_length: 5
+  
+  occasions:
+    type: list
+    item_type: enum
+    values: Occasion
+    max_length: 3
+  
+  style:
+    type: enum
+    values: Style
+  
+  gender:
+    type: enum
+    values: Gender
+  
+  age_group:
+    type: enum
+    values: AgeGroup
+
+logging:
+  level: INFO
+  format: "%(asctime)s - %(levelname)s - [%(name)s:%(lineno)d] - %(message)s"
+  handlers:
+    - type: file
+      filename: "processing_{timestamp}.log"
+    - type: stream
+
+caching:
+  backend: redis
+  host: localhost
+  port: 6379
+  db: 0
+  prefix: "prod_attr:" 

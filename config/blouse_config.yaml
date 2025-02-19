@@ -1,0 +1,189 @@
+extends: base_config.yaml
+
+attributes:
+  required:
+    - primary_color
+    - primary_color_detailed
+    - primary_color_hex
+    - secondary_colors
+    - secondary_colors_detailed
+    - secondary_colors_detailed_hex
+    - pattern
+    - sleeve_type
+    - neckline
+    - closure
+    - fit
+    - hemline
+    - material
+    - embellishment
+    - embellishment_level
+    - occasions
+    - style
+    - gender
+    - age_group
+    - brand
+    - brand_title
+    - title
+    - description
+    - price
+    - care_instructions
+    - size
+    - unique_design_element
+    - coordinating_items
+  
+  optional:
+    - padded
+    - secondary_color_hexes
+    - color_pairings
+    - occasion_detailed
+    - embellishment_detailed
+    - validation_errors
+    - search_context
+    - text_embedding
+
+validation_rules:
+  primary_color:
+    type: enum
+    values: Color
+    required: true
+
+  primary_color_detailed:
+    type: enum
+    values: ColorDetailed
+    required: true
+
+  primary_color_hex:
+    type: string
+    pattern: "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"
+    required: true
+
+  secondary_colors:
+    type: list
+    item_type: enum
+    values: Color
+    max_length: 5
+
+  secondary_colors_detailed:
+    type: list
+    item_type: enum
+    values: ColorDetailed
+    max_length: 5
+
+  pattern:
+    type: list
+    item_type: enum
+    values: Pattern
+    default: [OTHERS]
+
+  sleeve_type:
+    type: enum
+    values: SleeveType
+    required: true
+
+  neckline:
+    type: enum
+    values: Neckline
+    required: true
+    required_if: sleeve_type=OFF_SHOULDER
+    value: OFF_SHOULDER
+
+  closure:
+    type: enum
+    values: Closure
+    required: true
+    not_allowed_if:
+      fit: [FITTED, FORM_FITTING]
+      value: PULL_ON
+
+  fit:
+    type: enum
+    values: Fit
+    required: true
+
+  hemline:
+    type: enum
+    values: Hemline
+    required: true
+    required_if: fit=CROP
+    value: CROPPED
+
+  material:
+    type: enum
+    values: Material
+    required: true
+
+  embellishment:
+    type: list
+    item_type: enum
+    values: Embellishment
+    default: []
+
+  embellishment_level:
+    type: enum
+    values: EmbellishmentLevel
+    default: NONE
+
+  occasions:
+    type: list
+    item_type: enum
+    values: Occasion
+    min_length: 2
+    max_length: 4
+
+  style:
+    type: list
+    item_type: enum
+    values: Style
+    min_length: 1
+    max_length: 2
+
+  gender:
+    type: list
+    item_type: enum
+    values: Gender
+    default: [WOMEN]
+
+  age_group:
+    type: list
+    item_type: enum
+    values: AgeGroup
+    default: [ADULT]
+
+  color_pairings:
+    type: list
+    item_type: string
+    pattern: "^#([A-Fa-f0-9]{6})$"
+    length: 5
+
+  coordinating_items:
+    type: object
+    properties:
+      clothing:
+        type: list
+        length: 5
+      accessories:
+        type: list
+        length: 5
+      footwear:
+        type: list
+        length: 5
+      additional_apparel:
+        type: list
+        length: 3
+      styling_suggestions:
+        type: list
+        length: 3
+
+  unique_design_element:
+    type: list
+    min_length: 1
+    max_length: 3
+
+  price:
+    type: float
+    min: 0
+    required: true
+
+  size:
+    type: list
+    required: true 

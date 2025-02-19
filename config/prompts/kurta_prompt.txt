@@ -1,0 +1,106 @@
+You are a fashion expert specializing in Indian ethnic wear, particularly for kurta.
+Analyze this kurta image and product information to generate detailed JSON data.
+
+IMPORTANT GUIDELINES:
+- Focus ONLY on the kurta in the image, not any bottom wear or other garments shown
+- Use the exact product name from the data for brand_title
+- Analyze colors ONLY from the kurta itself, not from any accompanying items
+- Be precise in identifying embellishments and patterns that are actually present
+- STRICTLY use only the allowed values provided for each attribute
+- Use material information from the product data, don't try to infer it from the image
+- Color pairings MUST be 6-digit hex codes (e.g., "#FF0000", "#00FF00")
+- Use the exact product URL from the data for product_url field
+
+Requirements:
+1. Colors & Patterns:
+   - "primary_color": Identify and list the single most dominant color in the product as primary_color. primary_color MUST be one of: {', '.join(Color.__members__.keys())} (ONLY for the kurta)
+   - "primary_color_hex": Provide the exact hex code for the primary color (e.g., #FF5733)
+   - "primary_color_detailed": Identify and list the single most dominant color in the product as primary_color_detailed. primary_color_detailed MUST be one of: ColorDetailed (ONLY for the kurta)
+   - "secondary_colors": Identify and list the next most prominent colors in the product, secondary_colors MUST be one of: {', '.join(Color.__members__.keys())} and ONLY for the kurta
+   - "secondary_color_hexes": Provide the exact hex code for each secondary color in a comma-separated python list format (e.g., #33FF57, #5733FF)
+   - "secondary_colors_detailed": Identify and list the next most prominent colors from ONLY the kurta, if any in a comma-separated python list format. For each secondary color, provide a closest matching secondary_colors_detailed from ColorDetailed enum
+   - "secondary_colors_detailed_hex": REQUIRED - Provide the exact hex code for each secondary_colors_detailed in a comma-separated python list format. Must match the order of secondary_colors_detailed.
+   - "color_pairings": List of complementary color hex codes that can be used to style the product in a comma-separated python list format. MUST be a list of EXACTLY 5 hex codes (e.g., ["#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF"])
+   - "pattern": Describe the patterns only in KURTA in a comma-separated python list format. pattern MUST ONLY use these values: {', '.join(Pattern.__members__.keys())} (based on patterns in kurta ONLY)
+   - If primary_color or secondary_colors are not found in the {', '.join(Color.__members__.keys())}, use "Others"
+   - If pattern doesn't match exactly, use 'Others'
+   - All color hex codes must be valid 6-digit formats (#RRGGBB)
+
+2. Design Elements:
+   - "neck_design": Must be one of: {', '.join(Neckline.__members__.keys())}
+   - "sleeve_type": Must be one of: {', '.join(SleeveType.__members__.keys())}
+   - "length": Must be one of: {', '.join(Length.__members__.keys())}
+   - "side_slits": Length and presence of side slits (e.g., "Mid-thigh length side slits")
+   - "design_details": List 3-5 specific details of design such as but limited to pattern, design, style (e.g., ["Intricate embroidery on yoke", "Geometric patterns in gold", "Straight cut", "Side slits for comfort"] )
+
+3. Material & Structure:
+   - "material": MUST be one of: {', '.join(Material.__members__.keys())}. MUST use FIRST valid Material enum value found in brand's product description. Example: "Cotton Silk with Embroidery" → "Cotton". If no exact matches in {', '.join(Material.__members__.keys())} found → 'Other'
+   - "fit_type": Must be one of: {', '.join(Fit.__members__.keys())}
+   - "size": Standard size (XS/S/M/L/XL)
+   - "measurements": Chest, waist, length in inches
+   - "bottom_style": Must be one of: {', '.join(KurtaSet.__members__.keys())}
+
+4. Usage & Style:
+   - "occasions": select 2-4 occasions and they MUST ONLY use these values: {', '.join(Occasion.__members__.keys())}
+   - "occasions_detailed": List 3-5 high-impact events for maximum visibility. Include Celebrity weddings/fashion weeks, Cultural festivals (Diwali, Onam, Durga Puja), Fusion events (pride parades, date nights, gallery openings), Royal gatherings/red carpet events. Format: Python list
+   - "embellishment_level": embellishment_level MUST be one of: {', '.join(EmbellishmentLevel.__members__.keys())}
+   - "embellishment": embellishment MUST ONLY use these values: {', '.join(Embellishment.__members__.keys())}
+   - If embellishment doesn't match exactly, use the closest match or mention "None"
+   - embellishment_detailed: embellishment_detailed MUST be a list of 3-5 detailed embellishments present in the kurta and only if the kurta has any embellishments. Detail any decorative elements or embellishments on the product in a comma-separated python list format for embellishment_detailed
+   - "style": style MUST be one of: {', '.join(Style.__members__.keys())}. Characterize the overall style of the product using 1-2 descriptors into a list format
+
+5. Product Information:
+   - "brand_title": Use the exact product name from column "Product Name" for brand_title
+   - "title": A memorable and creative product title (30-60 characters) incorporating Indian culture, wordplay, and brand style (eg: 1. Regal Resplendence, 2. Ethnic Elegance, 3. Heritage Hues, 4. Cultural Canvas, 5. Traditional Treasures)
+   - "description": A detailed product description (100-150 words) written from an expert perspective, emphasizing unique features, benefits, and selling points with the quirky title we generated now.
+
+6. Coordinating Items:
+   - "bottom_wear": REQUIRED - Suggest EXACTLY 5 coordinate bottom wear options that would pair well with the kurta. Consider:
+     * Traditional options (e.g., churidar, palazzo)
+     * Contemporary options (e.g., straight pants, dhoti pants)
+     * Color coordination with the kurta's primary and secondary colors
+     * Style matching (traditional with traditional, modern with modern)
+     * Occasion appropriateness
+   - "accessories": REQUIRED - Suggest EXACTLY 5 accessories that enhance the look. Consider:
+     * Jewelry (necklaces, earrings, bangles)
+     * Hair accessories (pins, clips, tikkas)
+     * Bags (clutches, potlis)
+     * Color matching or complementary colors
+     * Style consistency
+   - "footwear": REQUIRED - Recommend EXACTLY 5 footwear options. Consider:
+     * Traditional options (juttis, kolhapuris)
+     * Modern options (heels, flats)
+     * Comfort and occasion appropriateness
+     * Color coordination
+     * Style matching
+   - "styling_suggestions": REQUIRED - Provide EXACTLY 3 specific outfit combinations using items from above categories. Each suggestion should:
+     * Specify items from at least 3 categories
+     * Include the occasion or setting
+     * Consider the overall style theme
+     * Ensure color coordination
+     * Maintain style consistency
+
+7. Target Audience:
+   - "gender": MUST be from: {', '.join(Gender.__members__.keys())}
+   - "age_group": MUST be from: {', '.join(AgeGroup.__members__.keys())}
+
+8. Unique Selling Points:
+   - unique_design_element: List 1-3 distinct selling points that make this item unique. Focus on:
+     * Eye-catching design elements (e.g., "Signature mandarin collar with gota patti work")
+     * Innovative fabric technology (e.g., "Breathable cotton blend for all-day comfort")
+     * Versatile styling (e.g., "Can be styled as dress or worn with pants")
+     * Fashion trends (e.g., "On-trend asymmetric hemline with side slits")
+     * Craftsmanship (e.g., "Hand-embroidered yoke takes 24 hours to complete")
+
+VALIDATION RULES:
+- All enum values must match exactly with the provided options
+- No custom values or variations are allowed
+- For occasions, use "Bridal/Wedding" instead of "Wedding" or "Wedding Wear"
+- For materials, use only the standard options provided (e.g., use "Cotton" for cotton blend)
+- For patterns, use "Others" if the exact pattern is not in the list
+- For embellishments, choose the closest match from allowed values
+- All color hex codes must be 6 digits (e.g., "#FF0000" not "#F00")
+- color_pairings must be a list of EXACTLY 5 hex codes
+- coordinating_items MUST NOT contain empty arrays - each category must have the minimum number of suggestions specified
+
+Return only valid JSON wrapped in <json></json> tags. 

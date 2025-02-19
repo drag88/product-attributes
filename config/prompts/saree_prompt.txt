@@ -1,0 +1,112 @@
+You are a fashion expert specializing in Indian ethnic wear, particularly sarees. 
+Analyze this saree image and product information to generate detailed JSON data.
+
+IMPORTANT GUIDELINES:
+- Focus ONLY on the saree in the image, not any blouse or other garments shown
+- Use the exact product name from the data for brand_title (e.g. if product name is "Green Dream", use that)
+- Analyze colors ONLY from the saree itself, not from any accompanying blouse or accessories
+- Be precise in identifying embellishments and patterns that are actually present on the saree
+- STRICTLY use only the allowed values provided for each attribute
+- Use material information from the product data, don't try to infer it from the image
+- For ruffled designs, use "Others" as pattern and "Sequinned" as embellishment
+- Color pairings MUST be 6-digit hex codes (e.g., "#FF0000", "#00FF00")
+- Use the exact product URL from the data for product_url field
+
+Requirements:
+1. Colors & Patterns:
+   - "primary_color": Identify and list the single most dominant color in the product as primary_color. primary_color MUST be one of: {', '.join(Color.__members__.keys())} (ONLY for the saree)
+   - "primary_color_hex": Provide the exact hex code for the primary color (e.g., #FF5733)
+   - "primary_color_detailed": Identify and list the single most dominant color in the product as primary_color_detailed. primary_color_detailed MUST be one of: ColorDetailed (ONLY for the saree)
+   - "secondary_colors": Identify and list the next most prominent colors in the product, secondary_colors MUST be one of: {', '.join(Color.__members__.keys())} and ONLY for the saree
+   - "secondary_color_hexes": Provide the exact hex code for each secondary color in a comma-separated python list format (e.g., #33FF57, #5733FF)
+   - "secondary_colors_detailed": Identify and list the next most prominent colors from ONLY the saree, if any in a comma-separated python list format. For each secondary color, provide a closest matching secondary_colors_detailed from ColorDetailed enum
+   - "secondary_colors_detailed_hex": REQUIRED - Provide the exact hex code for each secondary_colors_detailed in a comma-separated python list format. Must match the order of secondary_colors_detailed.
+   - "color_pairings": List of complementary color hex codes that can be used to style the product in a comma-separated python list format. MUST be a list of EXACTLY 5 hex codes (e.g., ["#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF"])
+   - "pattern": Describe the patterns only in SAREE in a comma-separated python list format. pattern MUST ONLY use these values: {', '.join(Pattern.__members__.keys())} (based on patterns in saree ONLY). Make sure to include only patterns and not embellishments that are actually present in the saree.
+   - If primary_color or secondary_colors are not found in the {', '.join(Color.__members__.keys())}, use "Others"
+   - If pattern doesn't match exactly, use 'Others'
+   - All color hex codes must be valid 6-digit formats (#RRGGBB)
+
+2. Design Elements:
+   - "saree_type": Must be one of: {', '.join(SareeType.__members__.keys())}
+   - "border_width": Must be one of: {', '.join(BorderWidth.__members__.keys())}
+   - "border_design": Must be one of: {', '.join(BorderDesign.__members__.keys())}
+   - "border_design_details": List 3-5 specific details of border design such as but limited to pattern, design, style of the border(e.g., ["Intricate zari work on border", "Geometric patterns in gold", "Ruffled Border", "Border with tassels"] )
+   - "pallu_design": Must be one of: {', '.join(PalluDesign.__members__.keys())}
+   - "pre_draped": Boolean indicating if the saree is pre-draped (True) or traditional draping required (False)
+
+3. Material & Structure:
+   - "material": MUST be one of: {', '.join(Material.__members__.keys())}. MUST use FIRST valid Material enum value found in brand's product description. Example: "Silk Cotton with Zari" → "Silk". If no exact matches in {', '.join(Material.__members__.keys())} found → 'Other'
+   - "length": must be between 4.5-9.5 meters
+   - "width": must be between 0.9-1.4 meters
+   - "weight": must be between 300-1000 grams
+
+4. Usage & Style:
+   - "occasions": select 2-4 occasions and they MUST ONLY use these values: {', '.join(Occasion.__members__.keys())}
+   - "occasions_detailed": List 3-5 high-impact events for maximum visibility. Include Celebrity weddings/fashion weeks, Cultural festivals (Diwali, Onam, Durga Puja), Fusion events (pride parades, date nights, gallery openings), Royal gatherings/red carpet events. Format: Python list
+   - "embellishment_level": embellishment_level MUST be one of: {', '.join(EmbellishmentLevel.__members__.keys())}
+   - "embellishment": embellishment MUST ONLY use these values: {', '.join(Embellishment.__members__.keys())}
+   - If embellishment doesn't match exactly, use the closest match or mention "None"
+   - embellishment_detailed: embellishment_detailed MUST be a list of 3-5 detailed embellishments present in the saree and only if the saree has any embellishments. Detail any decorative elements or embellishments on the product in a comma-separated python list format for embellishment_detailed
+   - "style": style MUST be one of: {', '.join(Style.__members__.keys())}. Characterize the overall style of the product using 1-2 descriptors into a list format
+
+5. Product Information:
+   - "brand_title": Use the exact product name from column "Product Name" for brand_title
+   - "title": A memorable and creative product title (30-60 characters) incorporating Indian culture, wordplay, and brand style (eg: 1. Bloom Bazaar, 2. Petal Pirouette, 3. Floral Rhapsody, 4. Blossom Breeze, 5. Botanical Bliss)
+   - "description": A detailed product description (100-150 words) written from an expert perspective, emphasizing unique features, benefits, and selling points with the quirky title we generated now.
+
+6. Coordinating Items:
+   - "clothing": REQUIRED - Suggest EXACTLY 5 coordinate clothing items that would pair well with the main product. Consider:
+     * Traditional options (e.g., blouses, cholis)
+     * Contemporary options (e.g., crop tops, jackets)
+     * Color coordination with the saree's primary and secondary colors
+     * Style matching (traditional with traditional, modern with modern)
+     * Occasion appropriateness
+   - "accessories": REQUIRED - Suggest EXACTLY 5 accessories that enhance the look. Consider:
+     * Jewelry (necklaces, earrings, bangles)
+     * Hair accessories (pins, clips, tikkas)
+     * Bags (clutches, potlis)
+     * Color matching or complementary colors
+     * Style consistency
+   - "footwear": REQUIRED - Recommend EXACTLY 5 footwear options. Consider:
+     * Traditional options (juttis, kolhapuris)
+     * Modern options (heels, flats)
+     * Comfort and occasion appropriateness
+     * Color coordination
+     * Style matching
+   - "additional_apparel": REQUIRED - Suggest EXACTLY 3 additional items. Consider:
+     * Layering pieces (shawls, jackets)
+     * Weather-appropriate options
+     * Style enhancement pieces
+     * Color complementing items
+   - "styling_suggestions": REQUIRED - Provide EXACTLY 3 specific outfit combinations using items from above categories. Each suggestion should:
+     * Specify items from at least 3 categories
+     * Include the occasion or setting
+     * Consider the overall style theme
+     * Ensure color coordination
+     * Maintain style consistency
+
+7. Target Audience:
+   - "gender": MUST be from: {', '.join(Gender.__members__.keys())}
+   - "age_group": MUST be from: {', '.join(AgeGroup.__members__.keys())}
+
+8. Unique Selling Points:
+   - unique_design_element: List 1-3 distinct selling points that make this item unique. Focus on:
+     * Eye-catching design elements (e.g., "Signature scalloped border with gold threadwork")
+     * Innovative fabric technology (e.g., "Wrinkle-resistant silk for easy maintenance")
+     * Versatile styling (e.g., "Reversible design offers two looks in one saree")
+     * Fashion trends (e.g., "On-trend ombré effect fading from navy to silver")
+     * Craftsmanship (e.g., "Hand-embroidered peacock motif takes 72 hours to complete")
+
+VALIDATION RULES:
+- All enum values must match exactly with the provided options
+- No custom values or variations are allowed
+- For occasions, use "Bridal/Wedding" instead of "Wedding" or "Wedding Wear"
+- For materials, use only the standard options provided (e.g., use "Silk" for artificial silk)
+- For patterns, use "Others" if the exact pattern is not in the list
+- For embellishments, choose the closest match from allowed values
+- All color hex codes must be 6 digits (e.g., "#FF0000" not "#F00")
+- color_pairings must be a list of EXACTLY 5 hex codes
+- coordinating_items MUST NOT contain empty arrays - each category must have the minimum number of suggestions specified
+
+Return only valid JSON wrapped in <json></json> tags. 
