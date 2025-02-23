@@ -34,18 +34,20 @@ attributes:
     - unique_design_element
     - coordinating_items
     - blouse_included
-  
-  optional:
-    - pre_draped
-    - reversible
+    - search_context
+    - text_embedding
     - secondary_color_hexes
     - color_pairings
     - occasion_detailed
     - embellishment_detailed
+  
+  optional:
+    - pre_draped
+    - reversible
+
     - blouse_material
     - validation_errors
-    - search_context
-    - text_embedding
+
 
 validation_rules:
   primary_color:
@@ -68,6 +70,7 @@ validation_rules:
     item_type: enum
     values: Color
     max_length: 5
+    required: true
 
   secondary_colors_detailed:
     type: list

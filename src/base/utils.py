@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Type, Optional, Tuple, Dict, List, Set
+from typing import Type, Optional, Tuple, Dict, List, Set, Any
 import re
 import difflib
 import logging
@@ -9,6 +9,8 @@ from src.base.enums import (
     EmbellishmentLevel, Embellishment, Occasion, 
     Style, Gender, AgeGroup
 )
+import base64
+from pathlib import Path
 # from src.base.clothing_item import ClothingItem
 
 logger = logging.getLogger(__name__)
@@ -242,3 +244,23 @@ class EnumRegistry:
             
 #         product_class = cls._registry[product_type]
 #         return product_class(**kwargs) 
+
+def create_image_message(image_path: str) -> Dict[str, Any]:
+    """Create message payload for image processing."""
+    data_url = image_to_data_url(image_path)
+    return {
+        "type": "image",
+        "source": {
+            "type": "base64",
+            "media_type": f"image/{Path(image_path).suffix[1:]}",
+            "data": data_url.split(",")[1]
+        }
+    }
+
+def image_to_data_url(image_path: str) -> str:
+    """Convert image to data URL format."""
+    with open(image_path, "rb") as f:
+        data = f.read()
+        file_type = Path(image_path).suffix[1:]
+        base64_str = base64.b64encode(data).decode("utf-8")
+        return f"data:image/{file_type};base64,{base64_str}" 

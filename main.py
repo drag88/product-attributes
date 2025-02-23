@@ -22,6 +22,16 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+class ConfigLoader:
+    def __init__(self, config_dir: Path):
+        self.config_dir = config_dir
+        
+    def load(self) -> Dict[str, Any]:
+        """Load base configuration from YAML file"""
+        config_path = self.config_dir / "base_config.yaml"
+        with open(config_path) as f:
+            return yaml.safe_load(f)
+
 
 def load_config(config_path: str) -> Dict:
     with open(config_path) as f:
@@ -38,7 +48,8 @@ def load_and_prepare_data(config: Dict) -> Tuple[pd.DataFrame, Dict]:
         'Product Name': 'title',
         'Product Description': 'description',
         'Price': 'price',
-        'Size': 'size'
+        'Size': 'size',
+        'Care Instructions': 'care_instructions'
     }
     
     # Create combined texts dictionary with mapped field names
@@ -166,6 +177,15 @@ def parse_args() -> argparse.Namespace:
 
 async def main():
     try:
+        # Load base configuration
+        config_loader = ConfigLoader(Path("config"))
+        base_config = config_loader.load()
+        
+        # Initialize services with the config dict
+        api_service = APIService(base_config)
+        attribute_generator = AttributeGenerator(api_service, base_config)
+        
+        # Rest of processing logic
         args = parse_args()
         target_types = (
             [t.lower() for t in args.product_types] 
@@ -173,24 +193,8 @@ async def main():
             else None
         )
         
-        config = load_config("config/base_config.yaml")
-        
-        # Initialize API service with Anthropic config and API key
-        api_config = config["api"]["anthropic"]
-        api_config["api_key"] = os.getenv("ANTHROPIC_API_KEY")
-        api_service = APIService(api_config)
-        
-        # Initialize attribute generator
-        attribute_generator = AttributeGenerator(
-            api_service=api_service,
-            config={
-                "prompts_dir": config["prompts"]["dir"],
-                "model": config["api"]["anthropic"]["model"]
-            }
-        )
-
         # Load and prepare data using the same logic as original file
-        df, combined_texts = load_and_prepare_data(config)
+        df, combined_texts = load_and_prepare_data(base_config)
         
         # Get available product types
         available_types = ClothingFactory.get_available_types()
@@ -229,8 +233,8 @@ async def main():
             results.append(result)
 
         # Save results
-        output_base = Path(config["paths"]["output"]["base_dir"])
-        attributes_path = config["paths"]["output"]["structure"]["attributes"]
+        output_base = Path(base_config["paths"]["output"]["base_dir"])
+        attributes_path = base_config["paths"]["output"]["structure"]["attributes"]
         
         # Use appropriate output path based on target types
         product_type_str = (

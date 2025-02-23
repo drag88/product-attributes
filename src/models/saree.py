@@ -1,11 +1,12 @@
 from typing import List, Optional, Any
 from pydantic import Field, field_validator
+from pydantic._internal import _validators
 import logging
 from src.base import (
     ClothingItem, SareeType, BorderWidth,
     BorderDesign, PalluDesign, Material
 )
-from src.utils.validation import find_best_enum_match
+from src.utils.validation import find_best_enum_match, validate_enum_field
 
 logger = logging.getLogger(__name__)
 
@@ -29,136 +30,38 @@ class Saree(ClothingItem):
     blouse_included: bool = False
     blouse_material: Optional[Material] = None
 
-    @field_validator('saree_type', mode='before')
-    def validate_saree_type(cls, v: Any) -> SareeType:
-        if isinstance(v, SareeType):
+    @field_validator('saree_type', 'border_width', 'border_design', 
+                    'pallu_design', 'blouse_material', mode='before')
+    def validate_saree_fields(cls, v: Any, info) -> Any:
+        field_config = {
+            'saree_type': (SareeType, SareeType.OTHERS, 0.7),
+            'border_width': (BorderWidth, BorderWidth.OTHERS, 0.7),
+            'border_design': (BorderDesign, BorderDesign.OTHERS, 0.7),
+            'pallu_design': (PalluDesign, PalluDesign.OTHERS, 0.7),
+            'blouse_material': (Material, Material.OTHERS, 0.7, True)
+        }
+        
+        if info.field_name not in field_config:
             return v
         
-        if not v:
-            return SareeType.OTHERS
-            
-        if isinstance(v, str):
-            try:
-                return SareeType(v)
-            except ValueError:
-                pass
-                
-            best_match, score = find_best_enum_match(v, SareeType)
-            if best_match and score >= 0.8:
-                msg = (
-                    f"Fuzzy matched saree type '{v}' to "
-                    f"'{best_match.value}' with score {score}"
-                )
-                logger.info(msg)
-                return best_match
+        config = field_config[info.field_name]
+        enum_cls = config[0]
+        default = config[1]
+        threshold = config[2]
+        allow_compound = len(config) > 3 and config[3]
         
-        logger.warning(f"Could not match saree type '{v}', defaulting to 'Others'")
-        return SareeType.OTHERS
-
-    @field_validator('border_width', mode='before')
-    def validate_border_width(cls, v: Any) -> BorderWidth:
-        if isinstance(v, BorderWidth):
-            return v
-        
-        if not v:
-            return BorderWidth.OTHERS
-            
-        if isinstance(v, str):
-            try:
-                return BorderWidth(v)
-            except ValueError:
-                pass
-                
-            best_match, score = find_best_enum_match(v, BorderWidth)
-            if best_match and score >= 0.8:
-                msg = (
-                    f"Fuzzy matched border width '{v}' to "
-                    f"'{best_match.value}' with score {score}"
-                )
-                logger.info(msg)
-                return best_match
-        
-        logger.warning(f"Could not match border width '{v}', defaulting to 'Others'")
-        return BorderWidth.OTHERS
-
-    @field_validator('border_design', mode='before')
-    def validate_border_design(cls, v: Any) -> BorderDesign:
-        if isinstance(v, BorderDesign):
-            return v
-        
-        if not v:
-            return BorderDesign.OTHERS
-            
-        if isinstance(v, str):
-            try:
-                return BorderDesign(v)
-            except ValueError:
-                pass
-                
-            best_match, score = find_best_enum_match(v, BorderDesign)
-            if best_match and score >= 0.8:
-                msg = (
-                    f"Fuzzy matched border design '{v}' to "
-                    f"'{best_match.value}' with score {score}"
-                )
-                logger.info(msg)
-                return best_match
-        
-        logger.warning(f"Could not match border design '{v}', defaulting to 'Others'")
-        return BorderDesign.OTHERS
-
-    @field_validator('pallu_design', mode='before')
-    def validate_pallu_design(cls, v: Any) -> PalluDesign:
-        if isinstance(v, PalluDesign):
-            return v
-        
-        if not v:
-            return PalluDesign.OTHERS
-            
-        if isinstance(v, str):
-            try:
-                return PalluDesign(v)
-            except ValueError:
-                pass
-                
-            best_match, score = find_best_enum_match(v, PalluDesign)
-            if best_match and score >= 0.8:
-                msg = (
-                    f"Fuzzy matched pallu design '{v}' to "
-                    f"'{best_match.value}' with score {score}"
-                )
-                logger.info(msg)
-                return best_match
-        
-        logger.warning(f"Could not match pallu design '{v}', defaulting to 'Others'")
-        return PalluDesign.OTHERS
-
-    @field_validator('blouse_material', mode='before')
-    def validate_blouse_material(cls, v: Any) -> Optional[Material]:
-        if v is None:
+        if info.field_name == 'blouse_material' and v is None:
             return None
-            
-        if isinstance(v, Material):
-            return v
-            
-        if isinstance(v, str):
-            try:
-                return Material(v)
-            except ValueError:
-                pass
-                
-            best_match, score = find_best_enum_match(v, Material)
-            if best_match and score >= 0.8:
-                msg = (
-                    f"Fuzzy matched blouse material '{v}' to "
-                    f"'{best_match.value}' with score {score}"
-                )
-                logger.info(msg)
-                return best_match
-        
-        logger.warning(f"Could not match blouse material '{v}', defaulting to 'Others'")
-        return Material.OTHERS
-    
+
+        return validate_enum_field(
+            v,
+            enum_cls,
+            info.field_name,
+            default=default,
+            threshold=threshold,
+            allow_compound=allow_compound
+        )
+
     def validate_attributes(self) -> List[str]:
         errors = []
         

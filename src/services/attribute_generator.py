@@ -11,7 +11,8 @@ from .api_service import APIService
 from src.base.utils import (
     validate_enum_value,
     validate_enum_list,
-    create_image_message
+    create_image_message,
+    image_to_data_url
 )
 
 
@@ -79,7 +80,7 @@ class AttributeGenerator:
     ) -> Optional[List[float]]:
         """Generate image embedding using Cohere API."""
         try:
-            data_url = self._image_to_data_url(image_path)
+            data_url = image_to_data_url(image_path)
             response = await self.api_service.call_cohere_api(
                 method='embed',
                 model=self.cohere_config["model"],
@@ -95,14 +96,6 @@ class AttributeGenerator:
                 exc_info=True
             )
             return None
-
-    def _image_to_data_url(self, image_path: str) -> str:
-        """Convert image to data URL format for Cohere API."""
-        with open(image_path, "rb") as f:
-            data = f.read()
-            file_type = Path(image_path).suffix[1:]
-            base64_str = base64.b64encode(data).decode("utf-8")
-            return f"data:image/{file_type};base64,{base64_str}"
 
     async def generate_attributes(
         self,

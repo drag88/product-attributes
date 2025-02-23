@@ -3,9 +3,13 @@ from anthropic._exceptions import (
     APIError, APITimeoutError, 
     APIConnectionError, RateLimitError
 )
+
 import asyncio
 import time
 import logging
+import csv
+from datetime import datetime
+from pathlib import Path
 from dataclasses import dataclass
 from typing import Dict, Optional, Any, List
 from tenacity import (
@@ -14,41 +18,34 @@ from tenacity import (
 )
 import cohere
 from anthropic import Anthropic
+import os
+from dotenv import load_dotenv
+from threading import Lock
+
+load_dotenv()  # Load environment variables from .env file
 
 @dataclass
 class APIRateConfig:
-    max_retries: int = 3
-    base_delay: int = 4
-    max_delay: int = 60
-    concurrent_limit: int = 3
-    batch_size: int = 5
+    max_retries: int
+    base_delay: int 
+    max_delay: int
+    concurrent_limit: int
+    batch_size: int
 
 class APIRateLimiter:
     def __init__(self, config: APIRateConfig):
         self.semaphore = asyncio.Semaphore(config.concurrent_limit)
         self.last_request_time = 0
-        self.min_request_interval = 1.0
+        self.min_request_interval = 1.0 / config.batch_size
+        self.retry_config = config
 
     async def wait_if_needed(self):
-        now = time.time()
-        if now - self.last_request_time < self.min_request_interval:
-            await asyncio.sleep(self.min_request_interval)
-        self.last_request_time = now
-
-CLAUDE_PRICING = {
-    "claude-3-5-sonnet-20240620": {
-        "base_input": 3.00,
-        "cache_write": 3.75,
-        "cache_read": 0.30,
-        "output": 15.00
-    },
-    "claude-3-haiku-20240307": {
-        "base_input": 0.25,
-        "cache_write": 0.30,
-        "cache_read": 0.03,
-        "output": 1.25
-    }
-}
+        """Wait to maintain rate limit if needed"""
+        elapsed = time.time() - self.last_request_time
+        wait_time = max(self.min_request_interval - elapsed, 0)
+        if wait_time > 0:
+            await asyncio.sleep(wait_time)
+        self.last_request_time = time.time()
 
 logger = logging.getLogger(__name__)
 
@@ -59,20 +56,80 @@ def log_retry_attempt(retry_state: RetryCallState) -> None:
         f"- Next retry in {retry_state.next_action.sleep} seconds"
     )
 
+class CostTracker:
+    def __init__(self):
+        self._lock = Lock()
+        self.anthropic_costs = []
+        self.cohere_costs = []
+
+    def track_anthropic(self, response):
+        with self._lock:
+            cost = self._calculate_anthropic_cost(response)
+            self.anthropic_costs.append({
+                'timestamp': datetime.now().isoformat(),
+                'model': response.model,
+                'input_tokens': response.usage.input_tokens,
+                'output_tokens': response.usage.output_tokens,
+                'cost': cost
+            })
+
+    def track_cohere(self, response, method):
+        with self._lock:
+            self.cohere_costs.append({
+                'timestamp': datetime.now().isoformat(),
+                'method': method,
+                'response': response.__dict__
+            })
+
+    def export_report(self, output_dir: Path):
+        with self._lock:
+            self._export_csv(output_dir / 'anthropic_costs.csv', self.anthropic_costs)
+            self._export_csv(output_dir / 'cohere_costs.csv', self.cohere_costs)
+
+    def _export_csv(self, path: Path, data: List[Dict]):
+        if not data:
+            return
+            
+        with open(path, 'w', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=data[0].keys())
+            writer.writeheader()
+            writer.writerows(data)
+
 class APIService:
-    def __init__(self, config: Dict[str, Any]):
-        self.config = config
-        self.anthropic_client = Anthropic()
-        self.cohere_client = cohere.Client(
-            api_key=config["api"]["cohere"]["api_key"]
-        )
-        self.client = AsyncAnthropic(api_key=config["api_key"])
-        self.rate_limiter = APIRateLimiter(APIRateConfig())
+    def __init__(self, config: Dict):
+        # Get API keys from environment
+        anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
+        cohere_api_key = os.getenv("COHERE_API_KEY")
+        
+        if not anthropic_api_key:
+            raise ValueError("ANTHROPIC_API_KEY not found in environment")
+        if not cohere_api_key:
+            raise ValueError("COHERE_API_KEY not found in environment")
+
+        # Initialize clients with env vars
+        self.async_client = AsyncAnthropic(api_key=anthropic_api_key)
+        self.sync_client = Anthropic(api_key=anthropic_api_key)  # Only if needed for sync operations
+        self.cohere_client = cohere.Client(api_key=cohere_api_key)
+
+        # Rest of config values from YAML
+        self.anthropic_config = config["api"]["anthropic"]
+        self.cohere_config = config["api"]["cohere"]
+        # self.client = AsyncAnthropic(api_key=anthropic_api_key)
+        self.rate_limiter = APIRateLimiter(APIRateConfig(
+            max_retries=self.anthropic_config["max_retries"],
+            base_delay=self.anthropic_config["base_delay"],
+            max_delay=self.anthropic_config["max_delay"],
+            concurrent_limit=self.anthropic_config["concurrent_limit"],
+            batch_size=self.anthropic_config["batch_size"]
+        ))
         self.model = config.get("model", "claude-3-5-sonnet-20240620")
+
+        # Enhanced components
+        self.cost_tracker = CostTracker()
 
     def calculate_cost(self, response: Any) -> Dict[str, Any]:
         """Calculate API call cost based on token usage."""
-        pricing = self.config["api"]["anthropic"]["pricing"]
+        pricing = self.anthropic_config["pricing"]
         
         # Input costs
         if hasattr(response.usage, 'cache_creation_input_tokens'):
@@ -122,7 +179,8 @@ class APIService:
         try:
             async with self.rate_limiter.semaphore:
                 await self.rate_limiter.wait_if_needed()
-                response = await self.anthropic_client.messages.create(**kwargs)
+                response = await self.async_client.messages.create(**kwargs)
+                self.cost_tracker.track_anthropic(response)
                 return response
         except Exception as e:
             logger.error(f"Anthropic API Error: {str(e)}", exc_info=True)
@@ -142,10 +200,16 @@ class APIService:
         """Call Cohere API with retry logic."""
         try:
             api_method = getattr(self.cohere_client, method)
-            return api_method(**kwargs)
+            response = api_method(**kwargs)
+            self.cost_tracker.track_cohere(response, method)
+            return response
         except Exception as e:
             logger.error(
                 f"Cohere API Error: {str(e)}, Method: {method}",
                 exc_info=True
             )
-            raise 
+            raise
+
+    def export_cost_report(self, output_dir: str):
+        """Export accumulated cost data"""
+        self.cost_tracker.export_report(Path(output_dir))
