@@ -20,12 +20,13 @@ __pycache__/
 # .installed.cfg
 # *.egg
 
-# # Environment
-# .env
-# .venv
-# env/
-# venv/
-# ENV/
+# Environment
+.env
+!.env.example
+.venv
+env/
+venv/
+ENV/
 
 # # IDE
 # .idea/
