@@ -1,0 +1,457 @@
+---
+description: Building the code
+globs: 
+---
+# Product Attribute Generation Framework - Comprehensive Implementation Guide
+
+## 1. Background & Analysis
+
+### Current System State
+The existing system handles product attribute generation for sarees, blouses, and kurtas through separate codebases, leading to:
+
+- Duplicated code across product types
+- Complex maintenance requirements
+- Inconsistent attribute handling
+- Limited scalability
+- Performance bottlenecks
+
+### Key Technical Challenges
+Let's analyze core technical hurdles:
+
+1. API Integration:
+   - Multiple Claude/Anthropic API instances
+   - Inconsistent rate limiting
+   - Duplicate caching logic
+   - Error handling variations
+
+2. Data Processing:
+   - Different validation strategies
+   - Inconsistent attribute formats
+   - Varied error handling
+   - Multiple processing pipelines
+
+3. Configuration Management:
+   - Hardcoded configurations
+   - Limited flexibility
+   - Manual updates required
+   - No version control
+
+## 2. Solution Architecture
+
+### Design Principles
+1. **Unified Base Structure**: Common foundation for all products
+2. **Configuration-Driven**: Easy product addition via configs
+3. **Factory Pattern**: Centralized product creation
+4. **Async Processing**: Efficient API handling
+5. **Extensible Design**: Simple addition of new features
+
+### Directory Structure
+```
+product_attributes/
+├── config/
+│   ├── base_config.yaml       # Common attributes & rules
+│   ├── saree_config.yaml      # Saree-specific config
+│   ├── blouse_config.yaml     # Blouse-specific config
+│   └── kurta_config.yaml      # Kurta-specific config
+│
+├── src/
+│   ├── base/
+│   │   ├── __init__.py
+│   │   ├── enums.py          # Shared enumerations
+│   │   ├── clothing_item.py  # Abstract base class
+│   │   └── exceptions.py     # Custom exceptions
+│   │
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── saree.py
+│   │   ├── blouse.py
+│   │   └── kurta.py
+│   │
+│   ├── factories/
+│   │   ├── __init__.py
+│   │   └── clothing_factory.py
+│   │
+│   ├── utils/
+│   │   ├── __init__.py
+│   │   ├── config_parser.py
+│   │   ├── validators.py
+│   │   └── cache.py
+│   │
+│   └── services/
+│       ├── __init__.py
+│       ├── api_service.py
+│       └── attribute_generator.py
+│
+└── main.py
+```
+
+## 3. Implementation Order
+
+Let's analyze the optimal implementation sequence:
+
+### Phase 1: Foundation (Week 1)
+
+#### Step 1: Base Components
+1. Create directory structure:
+```bash
+mkdir -p product_attributes/{config,src/{base,models,factories,utils,services}}
+```
+
+2. Implement base enums:
+```python
+# src/base/enums.py
+from enum import Enum
+from typing import Set
+
+class Color(str, Enum):
+    BLACK = "Black"
+    WHITE = "White"
+    # ... other colors
+    
+    @classmethod
+    def allowed_values(cls) -> Set[str]:
+        return {item.value for item in cls}
+```
+
+3. Create base clothing item:
+```python
+# src/base/clothing_item.py
+from abc import ABC, abstractmethod
+from pydantic import BaseModel
+
+class ClothingItem(BaseModel, ABC):
+    """Base class for all clothing items"""
+    brand: str
+    brand_title: str
+    title: str
+    description: str
+    price: float = Field(..., gt=0)
+    
+    @abstractmethod
+    def validate_attributes(self) -> List[str]:
+        """Validate product-specific attributes"""
+        pass
+```
+
+#### Step 2: Configuration System
+1. Create base config:
+```yaml
+# config/base_config.yaml
+common_attributes:
+  required:
+    - brand
+    - brand_title
+    - title
+    - description
+    - price
+    - primary_color
+    - material
+  
+  validation_rules:
+    price:
+      min: 0
+      type: float
+```
+
+2. Create product configs:
+```yaml
+# config/saree_config.yaml
+attributes:
+  required:
+    - border_width
+    - pallu_design
+  optional:
+    - pre_draped
+```
+
+### Phase 2: Core Components (Week 2)
+
+#### Step 3: Utility Layer
+1. Implement config parser:
+```python
+# src/utils/config_parser.py
+class ConfigParser:
+    def __init__(self, config_dir: Path):
+        self.base_config = self._load_base()
+        self.product_configs = {}
+```
+
+2. Create validators:
+```python
+# src/utils/validators.py
+class AttributeValidator:
+    def validate_product(self, product: ClothingItem) -> List[str]:
+        """Validate product attributes"""
+        pass
+```
+
+#### Step 4: Product Models
+1. Implement product classes:
+```python
+# src/models/saree.py
+class Saree(ClothingItem):
+    """Saree-specific implementation"""
+    border_width: str
+    pallu_design: str
+    
+    def validate_attributes(self) -> List[str]:
+        errors = []
+        # Add validation logic
+        return errors
+```
+
+### Phase 3: Business Logic (Week 3)
+
+#### Step 5: Factory Implementation
+```python
+# src/factories/clothing_factory.py
+class ClothingFactory:
+    _registry: Dict[str, Type[ClothingItem]] = {}
+    
+    @classmethod
+    def register(cls, product_type: str, product_class: Type[ClothingItem]):
+        cls._registry[product_type] = product_class
+```
+
+#### Step 6: Service Layer
+1. API service implementation:
+```python
+# src/services/api_service.py
+class ApiService:
+    def __init__(self, config: Dict):
+        self.rate_limiter = RateLimiter(config)
+        self.cache = CacheManager(config)
+```
+
+2. Attribute generator:
+```python
+# src/services/attribute_generator.py
+class AttributeGenerator:
+    async def generate_attributes(
+        self,
+        product: ClothingItem,
+        config: Dict
+    ) -> Dict:
+        """Generate attributes with validation"""
+        pass
+```
+
+### Phase 4: Integration (Week 4)
+
+#### Step 7: Main Script
+```python
+# main.py
+class ProductAttributeGenerator:
+    def __init__(self, config_dir: str):
+        self.config_parser = ConfigParser(config_dir)
+        self.attribute_generator = AttributeGenerator()
+```
+
+## 4. Critical Considerations
+
+### Error Handling Strategy
+Implement comprehensive error handling:
+
+1. Custom Exceptions:
+```python
+class ProductError(Exception):
+    """Base error for product operations"""
+    def __init__(self, message: str, details: Dict = None):
+        self.details = details
+        super().__init__(message)
+```
+
+2. Error Recovery:
+```python
+async def process_with_retry(
+    self,
+    func: Callable,
+    *args,
+    max_retries: int = 3,
+    **kwargs
+) -> Any:
+    """Process with retry logic"""
+    pass
+```
+
+### Caching Implementation
+Design efficient caching:
+
+1. Cache Manager:
+```python
+class CacheManager:
+    def __init__(self, config: Dict):
+        self.ttl = config["cache_ttl"]
+        self.backend = self._init_backend()
+```
+
+2. Cache Strategies:
+```python
+class CacheStrategy(ABC):
+    @abstractmethod
+    async def get_or_set(
+        self,
+        key: str,
+        getter: Callable
+    ) -> Any:
+        """Get or set cache value"""
+        pass
+```
+
+### API Integration
+Handle API calls efficiently:
+
+1. Rate Limiting:
+```python
+class RateLimiter:
+    def __init__(self, config: Dict):
+        self.max_requests = config["max_requests"]
+        self.time_window = config["time_window"]
+```
+
+2. API Client:
+```python
+class ApiClient:
+    def __init__(self, config: Dict):
+        self.rate_limiter = RateLimiter(config)
+        self.cache = CacheManager(config)
+```
+
+## 5. Testing Strategy
+
+### Unit Tests
+Create comprehensive test suite:
+
+1. Base Components:
+```python
+class TestClothingItem(unittest.TestCase):
+    def test_validation(self):
+        """Test base validation logic"""
+        pass
+```
+
+2. Product Models:
+```python
+class TestSaree(unittest.TestCase):
+    def test_attribute_validation(self):
+        """Test saree-specific validation"""
+        pass
+```
+
+### Integration Tests
+Test complete flows:
+
+1. End-to-End Tests:
+```python
+class TestProductGeneration(unittest.TestCase):
+    async def test_complete_flow(self):
+        """Test end-to-end attribute generation"""
+        pass
+```
+
+## 6. Completion Criteria
+
+Implementation is complete when:
+
+1. Technical Requirements:
+- All product types function correctly
+- New products can be added via config
+- Error handling is comprehensive
+- Caching is efficient
+- API integration is robust
+
+2. Business Requirements:
+- Attribute quality matches/exceeds current system
+- Product addition process is simplified
+- Maintenance effort is reduced
+- System performance is improved
+
+3. Code Quality:
+- Full test coverage
+- Clear documentation
+- Consistent error handling
+- Proper logging
+- Clean abstractions
+
+## 7. Extension Points
+
+### Adding New Products
+1. Create config file:
+```yaml
+# config/new_product_config.yaml
+attributes:
+  required:
+    - specific_attribute_1
+    - specific_attribute_2
+```
+
+2. Create product class:
+```python
+# src/models/new_product.py
+class NewProduct(ClothingItem):
+    """New product implementation"""
+    specific_attribute_1: str
+    specific_attribute_2: str
+```
+
+3. Register with factory:
+```python
+ClothingFactory.register("new_product", NewProduct)
+```
+
+### Adding New Attributes
+1. Update base config:
+```yaml
+common_attributes:
+  required:
+    - new_attribute
+```
+
+2. Update validation rules:
+```yaml
+validation_rules:
+  new_attribute:
+    type: string
+    pattern: "^[A-Za-z]+$"
+```
+
+## 8. Monitoring & Logging
+
+Implement comprehensive logging:
+
+1. Logger Setup:
+```python
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+```
+
+2. Monitoring Points:
+```python
+async def generate_attributes(self, product: ClothingItem):
+    logger.info(f"Starting attribute generation for {product.id}")
+    try:
+        # Generation logic
+        logger.info(f"Completed attribute generation for {product.id}")
+    except Exception as e:
+        logger.error(f"Error generating attributes: {str(e)}")
+        raise
+```
+
+## 9. Documentation
+
+Maintain comprehensive documentation:
+
+1. Code Documentation:
+- Clear docstrings
+- Type hints
+- Usage examples
+
+2. System Documentation:
+- Architecture overview
+- Configuration guide
+- Deployment instructions
+
+3. API Documentation:
+- Endpoint descriptions
+- Request/response formats
+- Error codes
