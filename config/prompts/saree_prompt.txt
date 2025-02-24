@@ -40,6 +40,7 @@ Requirements:
    - "length": must be between 4.5-9.5 meters
    - "width": must be between 0.9-1.4 meters
    - "weight": must be between 300-1000 grams
+   - "care_instructions": Care instructions for the saree from the brand's product description.
 
 4. Usage & Style:
    - "occasions": select 2-4 occasions and they MUST ONLY use these values: {', '.join(Occasion.__members__.keys())}

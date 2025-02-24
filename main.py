@@ -7,10 +7,14 @@ import pandas as pd
 from typing import Dict, Any, Tuple, List, Optional
 from dotenv import load_dotenv
 import argparse
+import json
+import time
+from datetime import datetime
 
 from src.factories.clothing_factory import ClothingFactory
 from src.services.api_service import APIService
 from src.services.attribute_generator import AttributeGenerator
+from src.services.batch_processor import BatchProcessor
 
 # Load environment variables
 load_dotenv()
@@ -48,9 +52,8 @@ def load_and_prepare_data(config: Dict) -> Tuple[pd.DataFrame, Dict]:
         'Product Name': 'title',
         'Product Description': 'description',
         'Price': 'price',
-        'Size': 'size',
-        'Care Instructions': 'care_instructions'
-    }
+        'Size': 'size'    
+        }
     
     # Create combined texts dictionary with mapped field names
     combined_texts = df[column_mappings.keys()].apply(
@@ -185,6 +188,14 @@ async def main():
         api_service = APIService(base_config)
         attribute_generator = AttributeGenerator(api_service, base_config)
         
+        # Initialize batch processor
+        batch_processor = BatchProcessor(
+            api_service,
+            attribute_generator,
+            Path(base_config["paths"]["output"]["base_dir"]),
+            batch_size=base_config["api"]["anthropic"]["batch_size"]
+        )
+        
         # Rest of processing logic
         args = parse_args()
         target_types = (
@@ -207,52 +218,57 @@ async def main():
             logger.warning("No products found to process")
             return
         
-        results = []
-        for _, row in df.iterrows():
-            # Determine product type
-            product_type = next(
-                t for t in available_types 
-                if t in row['Product Type'].lower()
-            )
+        # Process each product type
+        for product_type in (target_types or available_types):
+            if product_type not in available_types:
+                continue
+                
+            type_df = df[
+                df['Product Type'].str.contains(
+                    product_type, 
+                    case=False, 
+                    na=False
+                )
+            ].copy()
             
-            # Register enum mappings for this product type
-            enum_mappings = ClothingFactory.get_enum_mappings(product_type)
-            for field, enum_class in enum_mappings.items():
-                attribute_generator.register_enum_mapping(field, enum_class)
+            if type_df.empty:
+                logger.info(f"No products found for type: {product_type}")
+                continue
+                
+            logger.info(f"\nProcessing {len(type_df)} {product_type} products")
             
-            product_data = {
-                **combined_texts[row.name],
-                'product_id': str(row['Product ID']),
-                'image_path': row.get('image_path')
-            }
-            result = await process_product(
-                product_data, 
+            # Add image paths if configured
+            if "images_dir" in base_config["paths"]["input"]:
+                type_df['image_path'] = type_df.apply(
+                    lambda row: os.path.join(
+                        base_config["paths"]["input"]["images_dir"],
+                        str(row['Brand Name']),
+                        f"{row['Product ID']}.jpg"
+                    ),
+                    axis=1
+                )
+                
+                # Filter out rows with missing images
+                type_df = type_df[type_df['image_path'].apply(os.path.exists)]
+                
+                if type_df.empty:
+                    logger.warning(f"No {product_type} products found with valid images")
+                    continue
+                    
+                logger.info(f"Processing {len(type_df)} products with valid images")
+            
+            # Process products in batches using the batch processor
+            results = await batch_processor.batch_process(
+                type_df,
                 product_type,
-                attribute_generator
+                image_path_column='image_path' if 'image_path' in type_df.columns else None
             )
-            results.append(result)
-
-        # Save results
-        output_base = Path(base_config["paths"]["output"]["base_dir"])
-        attributes_path = base_config["paths"]["output"]["structure"]["attributes"]
-        
-        # Use appropriate output path based on target types
-        product_type_str = (
-            target_types[0] if target_types and len(target_types) == 1 
-            else "all"
-        )
-        output_path = (
-            output_base / attributes_path.format(product_type=product_type_str)
-        )
-        output_path.mkdir(parents=True, exist_ok=True)
-        
-        with open(output_path / "attributes.json", "w") as f:
-            yaml.dump(results, f)
             
-        logger.info(
-            f"Successfully processed {len(results)} products. "
-            f"Results saved to {output_path}"
-        )
+            if not results:
+                logger.warning(f"No results generated for {product_type}")
+                continue
+                
+            logger.info(f"Successfully processed {len(results)} {product_type} products")
 
     except Exception as e:
         logger.error(f"Error in main: {e}")
