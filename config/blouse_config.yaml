@@ -1,161 +1,233 @@
 extends: base_config.yaml
 
 attributes:
-  required:
-    - primary_color
-    - primary_color_detailed
-    - primary_color_hex
-    - secondary_colors
-    - secondary_colors_detailed
-    - secondary_colors_detailed_hex
-    - pattern
-    - sleeve_type
-    - neckline
-    - closure
-    - fit
-    - hemline
-    - material
-    - embellishment
-    - embellishment_level
-    - occasions
-    - style
-    - gender
-    - age_group
-    - brand
-    - brand_title
-    - title
-    - description
-    - price
-    - care_instructions
-    - size
-    - unique_design_element
-    - coordinating_items
+  # Basic Product Information
+  brand:
+    required: true
+    in_search_context: true
+    type: string
   
-  optional:
-    - padded
-    - secondary_color_hexes
-    - color_pairings
-    - occasion_detailed
-    - embellishment_detailed
-    - validation_errors
-    - search_context
-    - text_embedding
-
-validation_rules:
+  brand_title:
+    required: true
+    in_search_context: true
+    type: string
+  
+  title:
+    required: true
+    in_search_context: true
+    type: string
+  
+  description:
+    required: true
+    in_search_context: true
+    type: string
+  
+  price:
+    required: true
+    in_search_context: true
+    type: float
+    min: 0
+  
+  # Structural Attributes
+  sleeve_type:
+    required: true
+    in_search_context: true
+    type: enum
+    values: SleeveType
+  
+  neckline:
+    required: true
+    in_search_context: true
+    type: enum
+    values: Neckline
+    required_if: sleeve_type=OFF_SHOULDER
+    value: OFF_SHOULDER
+  
+  closure:
+    required: true
+    in_search_context: true
+    type: enum
+    values: Closure
+    not_allowed_if:
+      fit: [FITTED, FORM_FITTING]
+      value: PULL_ON
+  
+  fit:
+    required: true
+    in_search_context: true
+    type: enum
+    values: Fit
+  
+  hemline:
+    required: true
+    in_search_context: true
+    type: enum
+    values: Hemline
+    required_if: fit=CROP
+    value: CROPPED
+  
+  # Additional Features
+  padded:
+    required: false
+    in_search_context: true
+    type: boolean
+    default: false
+  
+  # Color Information
   primary_color:
+    required: true
+    in_search_context: true
     type: enum
     values: Color
-    required: true
-
+  
   primary_color_detailed:
+    required: true
+    in_search_context: true
     type: enum
     values: ColorDetailed
-    required: true
-
+  
   primary_color_hex:
+    required: true
+    in_search_context: false
     type: string
     pattern: "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"
-    required: true
-
+  
   secondary_colors:
+    required: true
+    in_search_context: true
     type: list
     item_type: enum
     values: Color
     max_length: 5
-
+  
   secondary_colors_detailed:
+    required: true
+    in_search_context: true
     type: list
     item_type: enum
     values: ColorDetailed
     max_length: 5
-
+  
+  secondary_colors_detailed_hex:
+    required: true
+    in_search_context: false
+    type: list
+    item_type: string
+  
+  secondary_color_hexes:
+    required: true
+    in_search_context: false
+    type: list
+    item_type: string
+  
+  color_pairings:
+    required: true
+    in_search_context: false
+    type: list
+    item_type: string
+    pattern: "^#([A-Fa-f0-9]{6})$"
+    length: 5
+  
+  # Design Elements
   pattern:
+    required: true
+    in_search_context: true
     type: list
     item_type: enum
     values: Pattern
     default: [OTHERS]
-
-  sleeve_type:
-    type: enum
-    values: SleeveType
-    required: true
-
-  neckline:
-    type: enum
-    values: Neckline
-    required: true
-    required_if: sleeve_type=OFF_SHOULDER
-    value: OFF_SHOULDER
-
-  closure:
-    type: enum
-    values: Closure
-    required: true
-    not_allowed_if:
-      fit: [FITTED, FORM_FITTING]
-      value: PULL_ON
-
-  fit:
-    type: enum
-    values: Fit
-    required: true
-
-  hemline:
-    type: enum
-    values: Hemline
-    required: true
-    required_if: fit=CROP
-    value: CROPPED
-
+  
   material:
+    required: true
+    in_search_context: true
     type: enum
     values: Material
-    required: true
-
+  
   embellishment:
+    required: true
+    in_search_context: true
     type: list
     item_type: enum
     values: Embellishment
     default: []
-
+  
   embellishment_level:
+    required: true
+    in_search_context: true
     type: enum
     values: EmbellishmentLevel
     default: NONE
-
+  
+  embellishment_detailed:
+    required: true
+    in_search_context: true
+    type: list
+    item_type: string
+  
+  unique_design_element:
+    required: true
+    in_search_context: true
+    type: list
+    min_length: 1
+    max_length: 3
+  
+  # Usage Context
   occasions:
+    required: true
+    in_search_context: true
     type: list
     item_type: enum
     values: Occasion
     min_length: 2
     max_length: 4
-
+  
+  occasion_detailed:
+    required: true
+    in_search_context: true
+    type: list
+    item_type: string
+  
   style:
+    required: true
+    in_search_context: true
     type: list
     item_type: enum
     values: Style
     min_length: 1
     max_length: 2
-
+  
+  # Target Demographics
   gender:
+    required: true
+    in_search_context: true
     type: list
     item_type: enum
     values: Gender
     default: [WOMEN]
-
+  
   age_group:
+    required: true
+    in_search_context: true
     type: list
     item_type: enum
     values: AgeGroup
     default: [ADULT]
-
-  color_pairings:
+  
+  # Product Care and Sizing
+  care_instructions:
+    required: true
+    in_search_context: true
+    type: string
+  
+  size:
+    required: true
+    in_search_context: true
     type: list
-    item_type: string
-    pattern: "^#([A-Fa-f0-9]{6})$"
-    length: 5
-
+  
+  # Styling Information
   coordinating_items:
+    required: true
+    in_search_context: true
     type: object
     properties:
       clothing:
@@ -173,17 +245,21 @@ validation_rules:
       styling_suggestions:
         type: list
         length: 3
-
-  unique_design_element:
-    type: list
-    min_length: 1
-    max_length: 3
-
-  price:
-    type: float
-    min: 0
+  
+  # Search and Embedding Data
+  search_context:
     required: true
-
-  size:
+    in_search_context: false
+    type: string
+  
+  text_embedding:
+    required: true
+    in_search_context: false
     type: list
-    required: true 
+    item_type: float
+  
+  validation_errors:
+    required: false
+    in_search_context: false
+    type: list
+    item_type: string 

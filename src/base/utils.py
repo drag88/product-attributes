@@ -1,186 +1,119 @@
 from enum import Enum
-from typing import Type, Optional, Tuple, Dict, List, Set, Any
-import re
-import difflib
+from typing import Type, Dict, List, Any, Set, Optional
+import base64
+import mimetypes
 import logging
+import yaml
+from pathlib import Path
+import importlib
 from functools import lru_cache
 from src.base.enums import (
     Color, ColorDetailed, Pattern, Material, 
     EmbellishmentLevel, Embellishment, Occasion, 
     Style, Gender, AgeGroup
 )
-import base64
-from pathlib import Path
-# from src.base.clothing_item import ClothingItem
+import os
 
 logger = logging.getLogger(__name__)
-
-
-def normalize_text(text: str) -> str:
-    """Normalize text for comparison."""
-    return re.sub(r'[^a-zA-Z0-9\s]', '', text.lower())
-
-
-def get_word_variations(word: str) -> Set[str]:
-    """Generate common variations of a word."""
-    word = word.lower()
-    variations = {word}
-    
-    suffix_map = {
-        'ed': '', 'ing': '', 'tion': 't', 
-        'sion': 's', 'al': '', 'ic': '',
-        'y': '', 'ies': 'y', 'ied': 'y'
-    }
-    
-    for suffix, replacement in suffix_map.items():
-        if word.endswith(suffix):
-            variations.add(word[:-len(suffix)] + replacement)
-    
-    return variations
-
-
-@lru_cache(maxsize=100)
-def build_enum_variations(enum_class: Type[Enum]) -> Dict[str, Enum]:
-    """Build cached mapping of normalized variations to enum values."""
-    variations = {}
-    
-    for enum_value in enum_class:
-        base_value = enum_value.value
-        words = normalize_text(base_value).split()
-        
-        variations[normalize_text(base_value)] = enum_value
-        
-        for word in words:
-            word_vars = get_word_variations(word)
-            for var in word_vars:
-                variations[var] = enum_value
-                
-        if len(words) > 1:
-            for word in words:
-                variations[normalize_text(word)] = enum_value
-    
-    return variations
-
-
-def get_similarity_score(text1: str, text2: str) -> float:
-    """Get similarity score between two texts."""
-    return difflib.SequenceMatcher(
-        None, 
-        normalize_text(text1), 
-        normalize_text(text2)
-    ).ratio()
-
-
-def find_best_enum_match(
-    value: str,
-    enum_class: Type[Enum],
-    threshold: float = 0.8
-) -> Tuple[Optional[Enum], float]:
-    """Find best matching enum value using multiple strategies."""
-    if not value:
-        return None, 0.0
-        
-    normalized_value = normalize_text(value)
-    variations = build_enum_variations(enum_class)
-    
-    # Try exact matches first
-    if normalized_value in variations:
-        return variations[normalized_value], 1.0
-    
-    # Try individual words for compound values
-    words = normalized_value.split()
-    if len(words) > 1:
-        for word in words:
-            if word in variations:
-                return variations[word], 0.9
-    
-    # Try fuzzy matching as last resort
-    best_score = 0.0
-    best_match = None
-    
-    for enum_value in enum_class:
-        score = get_similarity_score(value, enum_value.value)
-        if score > best_score and score >= threshold:
-            best_score = score
-            best_match = enum_value
-            
-    return best_match, best_score
-
-
-def get_default_enum_value(enum_class: Type[Enum]) -> Enum:
-    for default_name in ['OTHERS', 'OTHER', 'NONE']:
-        try:
-            return enum_class[default_name]
-        except KeyError:
-            continue
-    return next(iter(enum_class))
-
-
-def validate_enum_value(
-    value: Optional[str], 
-    enum_class: Type[Enum],
-    field_name: str
-) -> Enum:
-    if not value:
-        return get_default_enum_value(enum_class)
-        
-    if isinstance(value, str):
-        try:
-            return enum_class(value)
-        except ValueError:
-            pass
-            
-        best_match, score = find_best_enum_match(value, enum_class)
-        if best_match and score >= 0.8:
-            msg = (
-                f"Fuzzy matched {field_name} '{value}' to "
-                f"'{best_match.value}' with score {score}"
-            )
-            logger.info(msg)
-            return best_match
-    
-    msg = f"Could not match {field_name} '{value}', using default"
-    logger.warning(msg)
-    return get_default_enum_value(enum_class)
-
-
-def validate_enum_list(
-    values: Optional[List[str]], 
-    enum_class: Type[Enum],
-    field_name: str
-) -> List[Enum]:
-    if not values:
-        return []
-        
-    result = []
-    for value in values:
-        result.append(validate_enum_value(value, enum_class, field_name))
-            
-    return result or [get_default_enum_value(enum_class)]
 
 
 class EnumRegistry:
     _instance = None
     _enum_mappings: Dict[str, Dict[str, Type[Enum]]] = {}
-    _base_mappings: Dict[str, Type[Enum]] = {
-        'primary_color': Color,
-        'primary_color_detailed': ColorDetailed,
-        'secondary_colors': Color,
-        'secondary_colors_detailed': ColorDetailed,
-        'pattern': Pattern,
-        'material': Material,
-        'embellishment_level': EmbellishmentLevel,
-        'embellishment': Embellishment,
-        'occasions': Occasion,
-        'style': Style,
-        'gender': Gender,
-        'age_group': AgeGroup
-    }
+    _base_mappings: Dict[str, Type[Enum]] = {}
+    _product_types: Set[str] = set()
+    _initialized = False
 
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
+            # Don't initialize immediately to avoid circular imports
+            cls._initialized = False
         return cls._instance
+    
+    @classmethod
+    def get_instance(cls):
+        """Get or create the singleton instance."""
+        if cls._instance is None:
+            cls._instance = cls()
+        
+        # Initialize if not already done
+        if not cls._initialized:
+            cls._load_mappings_from_config()
+            cls._initialized = True
+            
+        return cls._instance
+
+    @classmethod
+    def _load_mappings_from_config(cls) -> None:
+        """Load enum mappings from configuration files."""
+        try:
+            # Import here to avoid circular imports
+            from src.utils.config_loader import ProductConfigManager
+            config_manager = ProductConfigManager.get_instance()
+            
+            # Load base mappings
+            base_config = config_manager.get_base_config()
+            cls._base_mappings = cls._extract_enum_mappings_from_attributes(
+                base_config.get('attributes', {})
+            )
+            
+            # Load product-specific mappings
+            for product_type in config_manager.get_available_product_types():
+                cls._product_types.add(product_type)
+                
+                product_config = config_manager.get_product_config(product_type)
+                product_mappings = cls._extract_enum_mappings_from_attributes(
+                    product_config.get('attributes', {})
+                )
+                
+                if product_mappings:
+                    cls.register_product_enums(product_type, product_mappings)
+                    
+        except Exception as e:
+            logger.error(f"Error loading enum mappings from config files: {e}")
+    
+    @classmethod
+    def _extract_enum_mappings_from_attributes(
+        cls, attributes: Dict[str, Any]
+    ) -> Dict[str, Type[Enum]]:
+        """Extract enum mappings from attribute definitions."""
+        enum_mappings = {}
+        
+        # Get enum module dynamically
+        enums_module = importlib.import_module('src.base.enums')
+        
+        for field_name, attr_config in attributes.items():
+            # Check if this is an enum field
+            if attr_config.get('type') == 'enum':
+                enum_class_name = attr_config.get('values')
+                if enum_class_name:
+                    try:
+                        enum_class = getattr(enums_module, enum_class_name)
+                        if issubclass(enum_class, Enum):
+                            enum_mappings[field_name] = enum_class
+                    except (AttributeError, TypeError):
+                        logger.warning(
+                            f"Could not find enum class '{enum_class_name}' "
+                            f"for field '{field_name}'"
+                        )
+            
+            # Check for list fields with enum items
+            elif (attr_config.get('type') == 'list' and 
+                  attr_config.get('item_type') == 'enum'):
+                enum_class_name = attr_config.get('values')
+                if enum_class_name:
+                    try:
+                        enum_class = getattr(enums_module, enum_class_name)
+                        if issubclass(enum_class, Enum):
+                            enum_mappings[field_name] = enum_class
+                    except (AttributeError, TypeError):
+                        logger.warning(
+                            f"Could not find enum class '{enum_class_name}' "
+                            f"for list field '{field_name}'"
+                        )
+        
+        return enum_mappings
 
     @classmethod
     def register_product_enums(
@@ -204,63 +137,100 @@ class EnumRegistry:
     @classmethod
     def get_available_types(cls) -> List[str]:
         """Get list of registered product types."""
-        return list(cls._enum_mappings.keys())
+        return list(cls._product_types)
+        
+    @classmethod
+    def add_product_type(cls, product_type: str, enum_mappings: Dict[str, Type[Enum]]) -> None:
+        """Add a new product type with its enum mappings."""
+        cls._product_types.add(product_type)
+        cls.register_product_enums(product_type, enum_mappings)
 
 
-# class ClothingFactory:
-#     _registry: Dict[str, Type[ClothingItem]] = {}
-#     _enum_registry = EnumRegistry()
+@lru_cache(maxsize=100)
+def _read_and_encode_image(path: str) -> tuple:
+    """Returns (base64_str, mime_type) for both APIs"""
+    with open(path, "rb") as f:
+        data = f.read()
+        mime_type = mimetypes.guess_type(path)[0] or "application/octet-stream"
+        return base64.b64encode(data).decode("utf-8"), mime_type
 
-#     @classmethod
-#     def register(
-#         cls, 
-#         product_type: str, 
-#         product_class: Type[ClothingItem],
-#         enum_mappings: Optional[Dict[str, Type[Enum]]] = None
-#     ) -> None:
-#         """Register a product type with its class and enum mappings."""
-#         cls._registry[product_type] = product_class
-#         if enum_mappings:
-#             cls._enum_registry.register_product_enums(
-#                 product_type, 
-#                 enum_mappings
-#             )
 
-#     @classmethod
-#     def get_available_types(cls) -> List[str]:
-#         """Get list of registered product types."""
-#         return list(cls._registry.keys())
-
-#     @classmethod
-#     def get_enum_mappings(cls, product_type: str) -> Dict[str, Type[Enum]]:
-#         """Get enum mappings for a product type."""
-#         return cls._enum_registry.get_enum_mappings(product_type)
-
-#     @classmethod
-#     def create(cls, product_type: str, **kwargs) -> ClothingItem:
-#         """Create a product instance with validated attributes."""
-#         if product_type not in cls._registry:
-#             raise ValueError(f"Unknown product type: {product_type}")
-            
-#         product_class = cls._registry[product_type]
-#         return product_class(**kwargs) 
-
-def create_image_message(image_path: str) -> Dict[str, Any]:
-    """Create message payload for image processing."""
-    data_url = image_to_data_url(image_path)
+def create_image_message(image_data_url: str) -> Dict[str, Any]:
+    """
+    Create a message dictionary with image content for API requests.
+    """
     return {
-        "type": "image",
-        "source": {
-            "type": "base64",
-            "media_type": f"image/{Path(image_path).suffix[1:]}",
-            "data": data_url.split(",")[1]
-        }
+        "role": "user", 
+        "content": [
+            {
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": image_data_url.split(';')[0].split(':')[1],
+                    "data": image_data_url.split(',')[1]
+                }
+            }
+        ]
     }
 
-def image_to_data_url(image_path: str) -> str:
-    """Convert image to data URL format."""
-    with open(image_path, "rb") as f:
-        data = f.read()
-        file_type = Path(image_path).suffix[1:]
-        base64_str = base64.b64encode(data).decode("utf-8")
-        return f"data:image/{file_type};base64,{base64_str}" 
+def image_to_data_url(image_path: str) -> Optional[str]:
+    """
+    Convert an image file to a data URL format.
+    Returns None if the file doesn't exist or conversion fails.
+    """
+    try:
+        # Validate image path
+        if not image_path:
+            logger.error("Empty image path provided")
+            return None
+            
+        path = Path(image_path)
+        if not path.exists():
+            logger.error(f"Image file not found: {image_path}")
+            return None
+            
+        if not path.is_file():
+            logger.error(f"Path is not a file: {image_path}")
+            return None
+            
+        # Check file size - warn if large
+        file_size_mb = path.stat().st_size / (1024 * 1024)
+        if file_size_mb > 5:
+            logger.warning(f"Image file is large ({file_size_mb:.2f}MB): {image_path}")
+        
+        # Determine MIME type based on file extension
+        extension = path.suffix.lower()
+        mime_type = {
+            '.jpg': 'image/jpeg',
+            '.jpeg': 'image/jpeg',
+            '.png': 'image/png',
+            '.gif': 'image/gif',
+            '.webp': 'image/webp',
+            '.bmp': 'image/bmp'
+        }.get(extension)
+        
+        if not mime_type:
+            # Use mimetypes library as fallback
+            mime_type = mimetypes.guess_type(image_path)[0]
+            
+        if not mime_type:
+            logger.warning(f"Could not determine MIME type for {image_path}, using image/jpeg")
+            mime_type = 'image/jpeg'  # Default to JPEG
+        
+        # Read and encode file
+        with open(image_path, "rb") as img_file:
+            img_data = base64.b64encode(img_file.read()).decode('utf-8')
+            
+        # Format for Cohere API - full data URL
+        data_url = f"data:{mime_type};base64,{img_data}"
+        
+        # Verify data URL format
+        if not data_url.startswith("data:") or ";base64," not in data_url:
+            logger.error(f"Generated invalid data URL format for {image_path}")
+            return None
+            
+        logger.debug(f"Successfully converted image to data URL: {image_path}")
+        return data_url
+    except Exception as e:
+        logger.exception(f"Error converting image to data URL: {str(e)}")
+        return None

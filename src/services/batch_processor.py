@@ -186,19 +186,46 @@ class BatchProcessor:
         rate_limiter: Optional[APIRateLimiter] = None
     ) -> Tuple[str, Optional[Dict[str, Any]]]:
         """Process a single product with optional rate limiting"""
+        product_id = str(product_data.get('product_id', 'unknown'))
+        print(f"Processing product {product_id} of type {product_type}")
+        logger.debug(f"Processing product {product_id} of type {product_type}")
+        
         if rate_limiter:
-            async with rate_limiter.semaphore:
-                await rate_limiter.wait_if_needed()
-                return await self._process_product_internal(
-                    product_data,
-                    product_type,
-                    image_path
-                )
-        return await self._process_product_internal(
-            product_data,
-            product_type,
-            image_path
-        )
+            print(f"Using rate limiter for product {product_id}")
+            logger.debug(f"Using rate limiter for product {product_id}")
+            try:
+                print(f"Acquiring semaphore for product {product_id}")
+                async with rate_limiter.semaphore:
+                    print(f"Semaphore acquired for product {product_id}")
+                    print(f"Waiting if needed for product {product_id}")
+                    await rate_limiter.wait_if_needed()
+                    print(f"Wait completed for product {product_id}")
+                    print(f"Calling _process_product_internal for product {product_id}")
+                    result = await self._process_product_internal(
+                        product_data,
+                        product_type,
+                        image_path
+                    )
+                    print(f"_process_product_internal completed for product {product_id}")
+                    return result
+            except Exception as e:
+                print(f"Error in rate-limited processing for product {product_id}: {str(e)}")
+                logger.error(f"Error in rate-limited processing: {str(e)}", exc_info=True)
+                return product_id, None
+        
+        print(f"Calling _process_product_internal directly for product {product_id}")
+        try:
+            result = await self._process_product_internal(
+                product_data,
+                product_type,
+                image_path
+            )
+            print(f"_process_product_internal completed directly for product {product_id}")
+            return result
+        except Exception as e:
+            print(f"Error in direct processing for product {product_id}: {str(e)}")
+            logger.error(f"Error in direct processing: {str(e)}", exc_info=True)
+            return product_id, None
 
     async def _process_product_internal(
         self,
@@ -207,30 +234,46 @@ class BatchProcessor:
         image_path: Optional[str] = None
     ) -> Tuple[str, Optional[Dict[str, Any]]]:
         try:
-            product_id = str(product_data['product_id'])
-            logger.info(f"Starting processing for product {product_id}")
+            product_id = str(product_data.get('product_id', 'unknown'))
+            print(f"Starting internal processing for product {product_id}")
+            logger.debug(f"Starting internal processing for product {product_id}")
             
             start_time = time.time()
             
             # Generate attributes
-            attributes = await self.attribute_generator.generate_attributes(
-                product_data,
-                product_type,
-                image_path
-            )
+            print(f"Calling generate_attributes for product {product_id}")
+            logger.debug(f"Calling generate_attributes for product {product_id}")
+            try:
+                attributes = await self.attribute_generator.generate_attributes(
+                    product_data,
+                    product_type,
+                    image_path
+                )
+                print(f"generate_attributes completed for product {product_id}")
+            except Exception as e:
+                print(f"Error in generate_attributes for product {product_id}: {str(e)}")
+                logger.error(f"Error in generate_attributes: {str(e)}", exc_info=True)
+                return product_id, None
             
             if not attributes:
+                print(f"No attributes generated for product {product_id}")
+                logger.debug(f"No attributes generated for product {product_id}")
                 return product_id, None
                 
             # Add metadata
+            print(f"Adding metadata for product {product_id}")
+            logger.debug(f"Adding metadata for product {product_id}")
             attributes.update({
                 'processed_at': datetime.now(),
                 'inference_time': time.time() - start_time
             })
             
+            print(f"Successfully processed product {product_id}")
+            logger.debug(f"Successfully processed product {product_id}")
             return product_id, attributes
             
         except Exception as e:
+            print(f"Error processing product {product_data.get('product_id', 'unknown')}: {str(e)}")
             logger.error(
                 f"Error processing product {product_data.get('product_id', 'unknown')}: {str(e)}", 
                 exc_info=True
@@ -244,13 +287,24 @@ class BatchProcessor:
         image_path_column: Optional[str] = None
     ) -> Dict[str, Any]:
         """Process products in batches"""
+        print(f"Starting batch_process for {product_type} with {len(df)} products")
+        logger.debug(f"Starting batch_process for {product_type} with {len(df)} products")
+        
         saver = self._get_saver(product_type)
+        print(f"Got saver for {product_type}")
+        
         stats = ProcessingStats()
         
         # Filter already processed products
+        print(f"Checking for already processed products")
+        print(f"Processed products count: {len(saver.processed_products)}")
+        
         df = df[~df['product_id'].astype(str).isin(saver.processed_products)]
         total_products = len(df)
         total_batches = (total_products + self.batch_size - 1) // self.batch_size
+        
+        print(f"After filtering already processed: {total_products} products remaining")
+        logger.debug(f"After filtering already processed: {total_products} products remaining")
         
         if total_products == 0:
             logger.info("No new products to process")
@@ -261,9 +315,54 @@ class BatchProcessor:
         results = {}
         rows = df.to_dict('records')
         
+        print(f"Converting DataFrame to records, got {len(rows)} rows")
+        
+        # Process batch concurrently
+        print(f"Creating tasks for batch processing")
+        
+        # Just process the first product for testing
+        if rows:
+            first_row = rows[0]
+            print(f"Processing first product {first_row.get('product_id', 'unknown')}")
+            
+            image_path = first_row.get(image_path_column) if image_path_column else None
+            if image_path:
+                print(f"Product has image: {image_path}")
+            else:
+                print(f"Product has no image")
+            
+            try:
+                print(f"Calling process_product for first product")
+                product_id, result = await self.process_product(
+                    first_row,
+                    product_type,
+                    image_path,
+                    self.api_service.rate_limiter
+                )
+                
+                print(f"Process_product completed for first product: {product_id}")
+                
+                if result:
+                    print(f"Processing successful result for product {product_id}")
+                    results[product_id] = result
+                    processing_time = result['inference_time']
+                    tokens = result.get('input_tokens', 0) + result.get('output_tokens', 0)
+                    stats.add_success(product_id, processing_time, tokens)
+                    saver.save(product_id, result)
+                else:
+                    print(f"Processing failed result for product {product_id}")
+                    stats.add_failure(product_id, "No result returned")
+            except Exception as e:
+                print(f"Error processing first product: {str(e)}")
+                logger.error(f"Error processing first product: {str(e)}", exc_info=True)
+        
+        # Continue with normal batch processing
         for batch_num in range(0, total_products, self.batch_size):
             start_time = time.time()
             batch = rows[batch_num:batch_num + self.batch_size]
+            
+            print(f"Processing batch {batch_num // self.batch_size + 1}/{total_batches} with {len(batch)} products")
+            logger.debug(f"Processing batch {batch_num // self.batch_size + 1}/{total_batches} with {len(batch)} products")
             
             # Process batch concurrently
             tasks = [
@@ -275,7 +374,12 @@ class BatchProcessor:
                 )
                 for row in batch
             ]
+            
+            print(f"Created {len(tasks)} tasks for batch processing")
+            
             batch_results = await asyncio.gather(*tasks)
+            
+            print(f"Batch processing completed, got {len(batch_results)} results")
             
             for product_id, result in batch_results:
                 if result:
@@ -291,6 +395,8 @@ class BatchProcessor:
             batch_time = time.time() - start_time
             if batch_num < total_products - self.batch_size:
                 delay = 1 if batch_time < 1 else 0.5
+                print(f"Adding delay of {delay}s before next batch")
+                logger.debug(f"Adding delay of {delay}s before next batch")
                 await asyncio.sleep(delay)
             
             logger.info(f"Batch {batch_num // self.batch_size + 1} completed in {time.time() - start_time:.1f}s")

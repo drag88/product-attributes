@@ -21,7 +21,7 @@ api:
 paths:
   input:
     product_data: "/Users/aswinsreenivas/Projects/D2C Search Engine/uplyft_server/uplyft-shopify-scraper/data/02_intermediate/processed_dataframe.csv"
-    images_dir: "/Users/aswinsreenivas/Projects/D2C Search Engine/uplyft_server/uplyft-shopify-scraper/data/02_intermediate/images"
+    images_dir: "/Users/aswinsreenivas/Projects/D2C Search Engine/uplyft_server/uplyft-shopify-scraper/data/02_intermediate/suta/images"
   
   output:
     base_dir: "/Users/aswinsreenivas/Projects/D2C Search Engine/uplyft_server/product_attributes/output"
@@ -35,73 +35,180 @@ prompts:
   system_temperature: 0.1
   max_tokens: 4096
 
-common_attributes:
-  required:
-    - brand
-    - brand_title
-    - title
-    - description
-    - price
-    - primary_color
-    - secondary_colors
-    - pattern
-    - material
-    - embellishment_level
-    - embellishment
-    - occasions
-    - style
-    - gender
-    - age_group
-
-validation_rules:
+attributes:
+  brand:
+    required: true
+    in_search_context: true
+    type: string
+    default: "suta"
+  
+  brand_title:
+    required: true
+    in_search_context: true
+    type: string
+  
+  title:
+    required: true
+    in_search_context: true
+    type: string
+  
+  description:
+    required: true
+    in_search_context: true
+    type: string
+  
   price:
-    min: 0
+    required: true
+    in_search_context: true
     type: float
+    min: 0
   
   primary_color:
-    type: string
-    enum_class: Color
+    required: true
+    in_search_context: true
+    type: enum
+    values: Color
+    threshold: 0.8
+  
+  primary_color_detailed:
+    required: true
+    in_search_context: true
+    type: enum
+    values: ColorDetailed
+    threshold: 0.8
   
   secondary_colors:
+    required: true
+    in_search_context: true
     type: list
     item_type: enum
     values: Color
     max_length: 3
+    threshold: 0.8
+  
+  secondary_colors_detailed:
+    required: true
+    in_search_context: true
+    type: list
+    item_type: enum
+    values: ColorDetailed
+    max_length: 3
+    threshold: 0.8
   
   pattern:
-    type: enum
+    required: true
+    in_search_context: true
+    type: list
+    item_type: enum
     values: Pattern
   
   material:
-    type: string
-  
-  embellishment_level:
+    required: true
+    in_search_context: true
     type: enum
-    values: EmbellishmentLevel
+    values: Material
+    threshold: 0.8
   
   embellishment:
+    required: true
+    in_search_context: true
     type: list
     item_type: enum
     values: Embellishment
     max_length: 5
+    threshold: 0.8
+  
+  embellishment_level:
+    required: true
+    in_search_context: true
+    type: enum
+    values: EmbellishmentLevel
+    threshold: 0.8
+  
+  embellishment_detailed:
+    required: true
+    in_search_context: true
+    type: list
+    item_type: string
   
   occasions:
+    required: true
+    in_search_context: true
     type: list
     item_type: enum
     values: Occasion
     max_length: 3
+    threshold: 0.8
+  
+  occasion_detailed:
+    required: true
+    in_search_context: true
+    type: list
+    item_type: string
   
   style:
-    type: enum
+    required: true
+    in_search_context: true
+    type: list
+    item_type: enum
     values: Style
+    threshold: 0.8
+  
+  care_instructions:
+    required: true
+    in_search_context: true
+    type: string
+  
+  size:
+    required: true
+    in_search_context: true
+    type: list
+  
+  unique_design_element:
+    required: true
+    in_search_context: true
+    type: list
+    min_length: 1
+    max_length: 3
   
   gender:
-    type: enum
+    required: true
+    in_search_context: true
+    type: list
+    item_type: enum
     values: Gender
+    default: [WOMEN]
+    threshold: 0.9
   
   age_group:
-    type: enum
+    required: true
+    in_search_context: true
+    type: list
+    item_type: enum
     values: AgeGroup
+    default: [ADULT]
+    threshold: 0.9
+  
+  coordinating_items:
+    required: true
+    in_search_context: true
+    type: object
+    properties:
+      clothing:
+        type: list
+        length: 5
+      accessories:
+        type: list
+        length: 5
+      footwear:
+        type: list
+        length: 5
+      additional_apparel:
+        type: list
+        length: 3
+      styling_suggestions:
+        type: list
+        length: 3
 
 logging:
   level: INFO
@@ -116,4 +223,131 @@ caching:
   host: localhost
   port: 6379
   db: 0
-  prefix: "prod_attr:" 
+  prefix: "prod_attr:"
+
+# Keep the old format for backward compatibility
+search_context:
+  include_base_attributes:
+    - title
+    - description
+    - price
+    - primary_color
+    - primary_color_detailed
+    - secondary_colors
+    - secondary_colors_detailed
+    - pattern
+    - material
+    - embellishment
+    - embellishment_level
+    - embellishment_detailed
+    - occasions
+    - occasion_detailed
+    - style
+    - care_instructions
+    - size
+    - unique_design_element
+    - gender
+    - age_group
+    - coordinating_items
+  
+  format_rules:
+    list_attributes:
+      join_with: ", "
+    enum_attributes:
+      use_value: true
+    boolean_attributes:
+      true_format: "{attr_name}: Yes"
+      false_format: null
+    coordinating_items:
+      format: "{category}: {items}"
+      items_join: ", "
+      categories_join: "; "
+
+category_standardization:
+  patterns:
+    - name: "Saree"
+      matches: 
+        - 'saree'
+        - 'sari'
+        - 'garage_saree'
+        - 'saree with blouse piece'
+        - 'reversible saree'
+    - name: "Blouse"
+      matches: 
+        - 'blouse'
+        - 'garage_blouse'
+    - name: "Kurta Set"
+      matches:
+        - 'kurta set'
+        - 'kurta'
+    - name: "Lehenga Set"
+      matches:
+        - 'lehenga set'
+        - 'lehengas'
+        - 'semi stitched lehenga set'
+    - name: "Dupatta"
+      matches:
+        - 'dupatta'
+        - 'stole'
+        - 'shawl'
+    - name: "Underskirt"
+      matches:
+        - 'underskirt'
+        - 'petticoat'
+    - name: "Co-ord Set"
+      matches:
+        - 'co-ord set'
+        - 'co-ord'
+    - name: "Combo Sets"
+      matches: 
+        - 'combo of \d+'
+        - 'combo'
+    - name: "Dress"
+      matches:
+        - 'dress'
+        - 'pantsuit set'
+        - 'lounge wear'
+    - name: "Accessories"
+      matches:
+        - 'accessories'
+        - 'earrings'
+        - 'scarf'
+        - 'neckpiece'
+        - 'scrunchies'
+    - name: "Fabric"
+      matches:
+        - 'fabric'
+        - 'swaddle'
+        - 'curtains'
+        - 'bed linen'
+    - name: "Shirt"
+      matches:
+        - 'shirt'
+        - 'shirts & tops'
+    - name: "Trouser"
+      matches:
+        - 'trouser'
+        - 'pants'
+        - 'dhoti'
+    - name: "Jacket"
+      matches:
+        - 'jacket'
+        - 'long jacket'
+        - 'short jacket'
+        - 'overcoat'
+    - name: "Home Textiles"
+      matches:
+        - 'quilts & comforters'
+        - 'bunting'
+        - 'table runner'
+    - name: "Gift Items"
+      matches:
+        - 'gift'
+        - 'gift box'
+        - 'gift wrapping'
+        - 'gift cards'
+    - name: "Rakhi"
+      matches:
+        - 'rakhi'
+        - 'lumba rakhi'
+  default_strategy: "title_case" 

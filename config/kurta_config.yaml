@@ -1,171 +1,222 @@
 extends: base_config.yaml
 
 attributes:
-  required:
-    - primary_color
-    - primary_color_detailed
-    - primary_color_hex
-    - secondary_colors
-    - secondary_colors_detailed
-    - secondary_colors_detailed_hex
-    - pattern
-    - sleeve_type
-    - neckline
-    - closure
-    - fit
-    - hemline
-    - length
-    - material
-    - kurta_set
-    - embellishment
-    - embellishment_level
-    - occasions
-    - style
-    - gender
-    - age_group
-    - brand
-    - brand_title
-    - title
-    - description
-    - price
-    - care_instructions
-    - size
-    - unique_design_element
-    - coordinating_items
+  sleeve_type:
+    required: true
+    in_search_context: true
+    type: enum
+    values: SleeveType
   
-  optional:
-    - side_slits
-    - secondary_color_hexes
-    - color_pairings
-    - occasion_detailed
-    - embellishment_detailed
-    - validation_errors
-    - search_context
-    - text_embedding
-
-validation_rules:
+  neckline:
+    required: true
+    in_search_context: true
+    type: enum
+    values: Neckline
+    required_if: sleeve_type=OFF_SHOULDER
+    value: OFF_SHOULDER
+  
+  closure:
+    required: true
+    in_search_context: true
+    type: enum
+    values: Closure
+    not_allowed_if:
+      fit: [FITTED, FORM_FITTING]
+      value: PULL_ON
+  
+  fit:
+    required: true
+    in_search_context: true
+    type: enum
+    values: Fit
+  
+  hemline:
+    required: true
+    in_search_context: true
+    type: enum
+    values: Hemline
+  
+  kurta_set:
+    required: true
+    in_search_context: true
+    type: enum
+    values: KurtaSet
+  
+  length:
+    required: true
+    in_search_context: true
+    type: float
+    min: 24
+    max: 60
+    unit: "inches"
+  
+  side_slits:
+    required: true
+    in_search_context: true
+    type: boolean
+    default: false
+  
+  bottom_material:
+    required: false
+    in_search_context: true
+    type: enum
+    values: Material
+  
+  dupatta_material:
+    required: false
+    in_search_context: true
+    type: enum
+    values: Material
+  
   primary_color:
+    required: true
+    in_search_context: true
     type: enum
     values: Color
-    required: true
-
+  
   primary_color_detailed:
+    required: true
+    in_search_context: true
     type: enum
     values: ColorDetailed
-    required: true
-
+  
   primary_color_hex:
+    required: true
+    in_search_context: false
     type: string
     pattern: "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"
-    required: true
-
+  
   secondary_colors:
+    required: true
+    in_search_context: true
     type: list
     item_type: enum
     values: Color
     max_length: 5
-
+  
   secondary_colors_detailed:
+    required: true
+    in_search_context: true
     type: list
     item_type: enum
     values: ColorDetailed
     max_length: 5
-
+  
+  secondary_colors_detailed_hex:
+    required: true
+    in_search_context: false
+    type: list
+    item_type: string
+  
   pattern:
+    required: true
+    in_search_context: true
     type: list
     item_type: enum
     values: Pattern
     default: [OTHERS]
-
-  sleeve_type:
-    type: enum
-    values: SleeveType
-    required: true
-
-  neckline:
-    type: enum
-    values: Neckline
-    required: true
-    required_if: sleeve_type=OFF_SHOULDER
-    value: OFF_SHOULDER
-
-  closure:
-    type: enum
-    values: Closure
-    required: true
-    not_allowed_if:
-      fit: [FITTED, FORM_FITTING]
-      value: PULL_ON
-
-  fit:
-    type: enum
-    values: Fit
-    required: true
-
-  hemline:
-    type: enum
-    values: Hemline
-    required: true
-
-  length:
-    type: enum
-    values: Length
-    required: true
-
+  
   material:
+    required: true
+    in_search_context: true
     type: enum
     values: Material
-    required: true
-
-  kurta_set:
-    type: enum
-    values: KurtaSet
-    required: true
-
+  
   embellishment:
+    required: true
+    in_search_context: true
     type: list
     item_type: enum
     values: Embellishment
     default: []
-
+  
   embellishment_level:
+    required: true
+    in_search_context: true
     type: enum
     values: EmbellishmentLevel
     default: NONE
-
+  
   occasions:
+    required: true
+    in_search_context: true
     type: list
     item_type: enum
     values: Occasion
     min_length: 2
     max_length: 4
-
+  
   style:
+    required: true
+    in_search_context: true
     type: list
     item_type: enum
     values: Style
     min_length: 1
     max_length: 2
-
+  
   gender:
+    required: true
+    in_search_context: true
     type: list
     item_type: enum
     values: Gender
     default: [WOMEN]
-
+  
   age_group:
+    required: true
+    in_search_context: true
     type: list
     item_type: enum
     values: AgeGroup
     default: [ADULT]
-
-  color_pairings:
+  
+  brand:
+    required: true
+    in_search_context: true
+    type: string
+  
+  brand_title:
+    required: true
+    in_search_context: true
+    type: string
+  
+  title:
+    required: true
+    in_search_context: true
+    type: string
+  
+  description:
+    required: true
+    in_search_context: true
+    type: string
+  
+  price:
+    required: true
+    in_search_context: true
+    type: float
+    min: 0
+  
+  care_instructions:
+    required: true
+    in_search_context: true
+    type: string
+  
+  size:
+    required: true
+    in_search_context: true
     type: list
-    item_type: string
-    pattern: "^#([A-Fa-f0-9]{6})$"
-    length: 5
-
+  
+  unique_design_element:
+    required: true
+    in_search_context: true
+    type: list
+    min_length: 1
+    max_length: 3
+  
   coordinating_items:
+    required: true
+    in_search_context: true
     type: object
     properties:
       clothing:
@@ -183,22 +234,46 @@ validation_rules:
       styling_suggestions:
         type: list
         length: 3
-
-  unique_design_element:
-    type: list
-    min_length: 1
-    max_length: 3
-
-  price:
-    type: float
-    min: 0
+  
+  secondary_color_hexes:
     required: true
-
-  size:
+    in_search_context: false
     type: list
+    item_type: string
+  
+  color_pairings:
     required: true
-
-  side_slits:
-    type: boolean
-    allowed_if:
-      hemline: [STRAIGHT, CURVED] 
+    in_search_context: false
+    type: list
+    item_type: string
+    pattern: "^#([A-Fa-f0-9]{6})$"
+    length: 5
+  
+  occasion_detailed:
+    required: true
+    in_search_context: true
+    type: list
+    item_type: string
+  
+  embellishment_detailed:
+    required: true
+    in_search_context: true
+    type: list
+    item_type: string
+  
+  search_context:
+    required: true
+    in_search_context: false
+    type: string
+  
+  text_embedding:
+    required: true
+    in_search_context: false
+    type: list
+    item_type: float
+  
+  validation_errors:
+    required: false
+    in_search_context: false
+    type: list
+    item_type: string 

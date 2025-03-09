@@ -1,75 +1,153 @@
-from typing import List, Optional, Any
-from pydantic import Field, field_validator
-from pydantic._internal import _validators
+from typing import List, Optional, Set, Any, Union
+from pydantic import field_validator, ValidationInfo, Field
 import logging
 from src.base import (
-    ClothingItem, SareeType, BorderWidth,
-    BorderDesign, PalluDesign, Material
+    ClothingItem, SareeType, BorderWidth, BorderDesign,
+    PalluDesign, Material
 )
-from src.utils.validation import find_best_enum_match, validate_enum_field
+from src.utils.validation import validate_enum_field
+from src.utils.config_loader import ConfigManager
 
 logger = logging.getLogger(__name__)
 
 
 class Saree(ClothingItem):
-    # Saree-specific attributes
+    # Load saree-specific configuration
+    _config = ConfigManager.get_merged_config('saree')
+    _attr_config = _config.get('attributes', {})
+    
+    # Design attributes
     saree_type: SareeType
     border_width: BorderWidth
     border_design: BorderDesign
-    border_design_details: List[str] = Field(default_factory=list)
+    border_design_details: Optional[Set[str]] = Field(
+        default=None,
+        min_length=_attr_config.get('border_design_details', {}).get('min_length', 3),
+        max_length=_attr_config.get('border_design_details', {}).get('max_length', 5)
+    )
     pallu_design: PalluDesign
-    pre_draped: bool = False
-    reversible: bool = False
     
     # Physical attributes
-    length: Optional[float] = Field(..., gt=0)
-    width: Optional[float] = Field(..., gt=0)
-    weight: Optional[float] = Field(..., gt=0)
+    length: Optional[float] = Field(
+        default=None,
+        gt=_attr_config.get('length', {}).get('min', 0),
+        lt=_attr_config.get('length', {}).get('max', 12)
+    )
+    width: Optional[float] = Field(
+        default=None,
+        gt=_attr_config.get('width', {}).get('min', 0.9),
+        lt=_attr_config.get('width', {}).get('max', 1.4)
+    )
+    weight: Optional[int] = Field(
+        default=None,
+        gt=_attr_config.get('weight', {}).get('min', 300),
+        lt=_attr_config.get('weight', {}).get('max', 1000)
+    )
     
-    # Blouse details
-    blouse_included: bool = False
-    blouse_material: Optional[Material] = None
+    # Additional features
+    blouse_included: bool = Field(
+        default=_attr_config.get('blouse_included', {}).get('default', False)
+    )
+    blouse_material: Optional[Material] = Field(
+        default=None
+    )
+    pre_draped: bool = Field(
+        default=_attr_config.get('pre_draped', {}).get('default', False)
+    )
+    reversible: bool = Field(
+        default=_attr_config.get('reversible', {}).get('default', False)
+    )
 
-    @field_validator('saree_type', 'border_width', 'border_design', 
-                    'pallu_design', 'blouse_material', mode='before')
-    def validate_saree_fields(cls, v: Any, info) -> Any:
+    @field_validator(
+        'saree_type', 'border_width', 'border_design', 
+        'pallu_design', 'blouse_material', 
+        mode='before'
+    )
+    @classmethod
+    def validate_enum_fields(
+        cls, v: Any, info: ValidationInfo
+    ) -> Union[SareeType, BorderWidth, BorderDesign, PalluDesign, 
+               Material, None]:
+        field_name = info.field_name
+        if not field_name:
+            return v
+            
         field_config = {
-            'saree_type': (SareeType, SareeType.OTHERS, 0.7),
-            'border_width': (BorderWidth, BorderWidth.OTHERS, 0.7),
-            'border_design': (BorderDesign, BorderDesign.OTHERS, 0.7),
-            'pallu_design': (PalluDesign, PalluDesign.OTHERS, 0.7),
-            'blouse_material': (Material, Material.OTHERS, 0.7, True)
+            'saree_type': (
+                SareeType, 
+                SareeType.OTHERS, 
+                cls._attr_config.get('saree_type', {}).get('threshold', 0.7)
+            ),
+            'border_width': (
+                BorderWidth, 
+                BorderWidth.OTHERS, 
+                cls._attr_config.get('border_width', {}).get('threshold', 0.7)
+            ),
+            'border_design': (
+                BorderDesign, 
+                BorderDesign.OTHERS, 
+                cls._attr_config.get('border_design', {}).get('threshold', 0.7)
+            ),
+            'pallu_design': (
+                PalluDesign, 
+                PalluDesign.OTHERS, 
+                cls._attr_config.get('pallu_design', {}).get('threshold', 0.7)
+            ),
+            'blouse_material': (
+                Material, 
+                Material.OTHERS, 
+                cls._attr_config.get('blouse_material', {}).get('threshold', 0.7),
+                True
+            )
         }
         
-        if info.field_name not in field_config:
+        if field_name not in field_config:
             return v
         
-        config = field_config[info.field_name]
+        config = field_config[field_name]
         enum_cls = config[0]
         default = config[1]
         threshold = config[2]
         allow_compound = len(config) > 3 and config[3]
         
-        if info.field_name == 'blouse_material' and v is None:
+        # Special case for blouse_material
+        if field_name == 'blouse_material' and v is None:
             return None
 
-        return validate_enum_field(
+        result = validate_enum_field(
             v,
             enum_cls,
-            info.field_name,
+            field_name,
             default=default,
             threshold=threshold,
             allow_compound=allow_compound
         )
+        
+        # Type cast to ensure correct return type
+        if field_name == 'saree_type':
+            return SareeType(result.value)
+        elif field_name == 'border_width':
+            return BorderWidth(result.value)
+        elif field_name == 'border_design':
+            return BorderDesign(result.value)
+        elif field_name == 'pallu_design':
+            return PalluDesign(result.value)
+        elif field_name == 'blouse_material' and result is not None:
+            return Material(result.value)
+        
+        return result
 
     def validate_attributes(self) -> List[str]:
         errors = []
         
         # Validate physical measurements
-        if self.length and self.length < 4.5:
-            errors.append("Saree length should be at least 4.5 meters")
-        if self.width and self.width < 0.8:
-            errors.append("Saree width should be at least 0.8 meters")
+        min_length = self._attr_config.get('length', {}).get('min', 4.5)
+        if self.length and self.length < min_length:
+            errors.append(f"Saree length should be at least {min_length} meters")
+            
+        min_width = self._attr_config.get('width', {}).get('min', 0.8)
+        if self.width and self.width < min_width:
+            errors.append(f"Saree width should be at least {min_width} meters")
             
         # Validate blouse material if included
         if self.blouse_included and not self.blouse_material:

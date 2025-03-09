@@ -40,3 +40,8 @@ ENV/
 # output/
 # archive/
 # .cursorrules 
+
+# Logs and output
+logs/
+output/
+.DS_Store 

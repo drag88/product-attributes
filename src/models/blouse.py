@@ -22,6 +22,7 @@ class Blouse(ClothingItem):
     padded: bool = False
 
     @field_validator('sleeve_type', mode='before')
+    @classmethod
     def validate_sleeve_type(cls, v: Any) -> SleeveType:
         if isinstance(v, SleeveType):
             return v
@@ -42,12 +43,15 @@ class Blouse(ClothingItem):
                     f"'{best_match.value}' with score {score}"
                 )
                 logger.info(msg)
-                return best_match
+                return SleeveType(best_match.value)
         
-        logger.warning(f"Could not match sleeve type '{v}', defaulting to 'Others'")
+        logger.warning(
+            f"Could not match sleeve type '{v}', defaulting to 'Others'"
+        )
         return SleeveType.OTHERS
 
     @field_validator('neckline', mode='before')
+    @classmethod
     def validate_neckline(cls, v: Any) -> Neckline:
         if isinstance(v, Neckline):
             return v
@@ -68,12 +72,15 @@ class Blouse(ClothingItem):
                     f"'{best_match.value}' with score {score}"
                 )
                 logger.info(msg)
-                return best_match
+                return Neckline(best_match.value)
         
-        logger.warning(f"Could not match neckline '{v}', defaulting to 'Others'")
+        logger.warning(
+            f"Could not match neckline '{v}', defaulting to 'Others'"
+        )
         return Neckline.OTHERS
 
     @field_validator('closure', mode='before')
+    @classmethod
     def validate_closure(cls, v: Any) -> Closure:
         if isinstance(v, Closure):
             return v
@@ -94,12 +101,15 @@ class Blouse(ClothingItem):
                     f"'{best_match.value}' with score {score}"
                 )
                 logger.info(msg)
-                return best_match
+                return Closure(best_match.value)
         
-        logger.warning(f"Could not match closure '{v}', defaulting to 'Others'")
+        logger.warning(
+            f"Could not match closure '{v}', defaulting to 'Others'"
+        )
         return Closure.OTHERS
 
     @field_validator('fit', mode='before')
+    @classmethod
     def validate_fit(cls, v: Any) -> Fit:
         if isinstance(v, Fit):
             return v
@@ -120,12 +130,15 @@ class Blouse(ClothingItem):
                     f"'{best_match.value}' with score {score}"
                 )
                 logger.info(msg)
-                return best_match
+                return Fit(best_match.value)
         
-        logger.warning(f"Could not match fit '{v}', defaulting to 'Others'")
+        logger.warning(
+            f"Could not match fit '{v}', defaulting to 'Others'"
+        )
         return Fit.OTHERS
 
     @field_validator('hemline', mode='before')
+    @classmethod
     def validate_hemline(cls, v: Any) -> Hemline:
         if isinstance(v, Hemline):
             return v
@@ -146,9 +159,11 @@ class Blouse(ClothingItem):
                     f"'{best_match.value}' with score {score}"
                 )
                 logger.info(msg)
-                return best_match
+                return Hemline(best_match.value)
         
-        logger.warning(f"Could not match hemline '{v}', defaulting to 'Others'")
+        logger.warning(
+            f"Could not match hemline '{v}', defaulting to 'Others'"
+        )
         return Hemline.OTHERS
     
     def validate_attributes(self) -> List[str]:
@@ -167,9 +182,5 @@ class Blouse(ClothingItem):
             errors.append(
                 "Fitted/form-fitting blouses should not use pull-on closure"
             )
-            
-        # Validate hemline based on fit
-        if self.fit == Fit.CROP and self.hemline != Hemline.CROPPED:
-            errors.append("Crop fit requires cropped hemline")
             
         return errors 

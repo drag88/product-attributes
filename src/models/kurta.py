@@ -29,6 +29,7 @@ class Kurta(ClothingItem):
     dupatta_material: Optional[Material] = None
     
     @field_validator('sleeve_type', mode='before')
+    @classmethod
     def validate_sleeve_type(cls, v: Any) -> SleeveType:
         if isinstance(v, SleeveType):
             return v
@@ -57,6 +58,7 @@ class Kurta(ClothingItem):
         return SleeveType.OTHERS
     
     @field_validator('neckline', mode='before')
+    @classmethod
     def validate_neckline(cls, v: Any) -> Neckline:
         if isinstance(v, Neckline):
             return v
@@ -85,6 +87,7 @@ class Kurta(ClothingItem):
         return Neckline.OTHERS
     
     @field_validator('closure', mode='before')
+    @classmethod
     def validate_closure(cls, v: Any) -> Closure:
         if isinstance(v, Closure):
             return v
@@ -113,6 +116,7 @@ class Kurta(ClothingItem):
         return Closure.OTHERS
     
     @field_validator('fit', mode='before')
+    @classmethod
     def validate_fit(cls, v: Any) -> Fit:
         if isinstance(v, Fit):
             return v
@@ -141,6 +145,7 @@ class Kurta(ClothingItem):
         return Fit.OTHERS
     
     @field_validator('hemline', mode='before')
+    @classmethod
     def validate_hemline(cls, v: Any) -> Hemline:
         if isinstance(v, Hemline):
             return v
@@ -169,6 +174,7 @@ class Kurta(ClothingItem):
         return Hemline.OTHERS
     
     @field_validator('kurta_set', mode='before')
+    @classmethod
     def validate_kurta_set(cls, v: Any) -> KurtaSet:
         if isinstance(v, KurtaSet):
             return v
@@ -196,49 +202,29 @@ class Kurta(ClothingItem):
         )
         return KurtaSet.OTHERS
     
-    
     def validate_attributes(self) -> List[str]:
         errors = []
         
-        # Validate sleeve type and neckline combination
-        if (self.sleeve_type == SleeveType.OFF_SHOULDER and 
-                self.neckline != Neckline.OFF_SHOULDER):
-            errors.append(
-                "Off-shoulder sleeve type requires off-shoulder neckline"
-            )
+        # Validate physical measurements
+        if self.length < 24:
+            errors.append("Kurta length should be at least 24 inches")
             
-        # Validate closure based on fit
-        if (self.fit in [Fit.FITTED, Fit.FORM_FITTING] and 
-                self.closure == Closure.PULL_ON):
-            errors.append(
-                "Fitted/form-fitting kurtas should not use pull-on closure"
-            )
+        # Validate bottom material if kurta set includes bottom
+        bottom_sets = [
+            KurtaSet.KURTA_PANT, KurtaSet.KURTA_PAJAMA,
+            KurtaSet.KURTA_DHOTI, KurtaSet.KURTA_SALWAR
+        ]
+        if self.kurta_set in bottom_sets and not self.bottom_material:
+            msg = "Bottom material must be specified for kurta sets with bottoms"
+            errors.append(msg)
             
-        # Validate hemline based on side slits
-        if self.side_slits and self.hemline not in [
-            Hemline.STRAIGHT, Hemline.CURVED
-        ]:
-            errors.append(
-                "Side slits are only available for straight or curved hemlines"
-            )
-            
-        # Validate bottom material for sets with bottom wear
-        if self.kurta_set in [
-            KurtaSet.KURTA_WITH_PALAZZO,
-            KurtaSet.KURTA_WITH_PANTS,
-            KurtaSet.COMPLETE_SET
-        ] and not self.bottom_material:
-            errors.append(
-                "Bottom material must be specified for sets with bottom wear"
-            )
-            
-        # Validate dupatta material for sets with dupatta
-        if self.kurta_set in [
-            KurtaSet.KURTA_WITH_DUPATTA,
-            KurtaSet.COMPLETE_SET
-        ] and not self.dupatta_material:
-            errors.append(
-                "Dupatta material must be specified for sets with dupatta"
-            )
+        # Validate dupatta material if kurta set includes dupatta
+        dupatta_sets = [
+            KurtaSet.KURTA_DUPATTA, KurtaSet.KURTA_PANT_DUPATTA,
+            KurtaSet.KURTA_PAJAMA_DUPATTA, KurtaSet.KURTA_SALWAR_DUPATTA
+        ]
+        if self.kurta_set in dupatta_sets and not self.dupatta_material:
+            msg = "Dupatta material must be specified for kurta sets with dupatta"
+            errors.append(msg)
             
         return errors 
