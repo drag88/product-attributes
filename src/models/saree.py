@@ -3,7 +3,7 @@ from pydantic import field_validator, ValidationInfo, Field
 import logging
 from src.base import (
     ClothingItem, SareeType, BorderWidth, BorderDesign,
-    PalluDesign, Material
+    PalluDesign, Material, EmbellishmentLevel
 )
 from src.utils.validation import validate_enum_field
 from src.utils.config_loader import ConfigManager
@@ -22,8 +22,12 @@ class Saree(ClothingItem):
     border_design: BorderDesign
     border_design_details: Optional[Set[str]] = Field(
         default=None,
-        min_length=_attr_config.get('border_design_details', {}).get('min_length', 3),
-        max_length=_attr_config.get('border_design_details', {}).get('max_length', 5)
+        min_length=_attr_config.get(
+            'border_design_details', {}
+        ).get('min_length', 3),
+        max_length=_attr_config.get(
+            'border_design_details', {}
+        ).get('max_length', 5)
     )
     pallu_design: PalluDesign
     
@@ -66,8 +70,7 @@ class Saree(ClothingItem):
     @classmethod
     def validate_enum_fields(
         cls, v: Any, info: ValidationInfo
-    ) -> Union[SareeType, BorderWidth, BorderDesign, PalluDesign, 
-               Material, None]:
+    ) -> Union[SareeType, BorderWidth, BorderDesign, PalluDesign, Material]:
         field_name = info.field_name
         if not field_name:
             return v
@@ -96,7 +99,9 @@ class Saree(ClothingItem):
             'blouse_material': (
                 Material, 
                 Material.OTHERS, 
-                cls._attr_config.get('blouse_material', {}).get('threshold', 0.7),
+                cls._attr_config.get(
+                    'blouse_material', {}
+                ).get('threshold', 0.7),
                 True
             )
         }
@@ -125,9 +130,9 @@ class Saree(ClothingItem):
         
         # Type cast to ensure correct return type
         if field_name == 'saree_type':
-            return SareeType(result.value)
+            return SareeType(str(result.value))
         elif field_name == 'border_width':
-            return BorderWidth(result.value)
+            return BorderWidth(str(result.value))
         elif field_name == 'border_design':
             return BorderDesign(result.value)
         elif field_name == 'pallu_design':
@@ -137,13 +142,24 @@ class Saree(ClothingItem):
         
         return result
 
+    @field_validator('saree_type', mode='before')
+    @classmethod
+    def validate_saree_type(cls, v: Any) -> SareeType:
+        return validate_enum_field(
+            v,
+            SareeType,
+            'saree_type',
+            default=SareeType.OTHERS,
+            threshold=cls._attr_config.get('saree_type', {}).get('threshold', 0.7)
+        )
+
     def validate_attributes(self) -> List[str]:
         errors = []
         
         # Validate physical measurements
         min_length = self._attr_config.get('length', {}).get('min', 4.5)
         if self.length and self.length < min_length:
-            errors.append(f"Saree length should be at least {min_length} meters")
+            errors.append("Saree length >= {min}m".format(min=min_length))
             
         min_width = self._attr_config.get('width', {}).get('min', 0.8)
         if self.width and self.width < min_width:

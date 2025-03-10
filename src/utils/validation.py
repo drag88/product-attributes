@@ -4,13 +4,17 @@ import difflib
 import logging
 import re
 from functools import lru_cache
+from difflib import SequenceMatcher
 
 logger = logging.getLogger(__name__)
 
 
 def normalize_text(text: str) -> str:
-    """Normalize text for comparison."""
-    return re.sub(r'[^a-zA-Z0-9\s]', '', text.lower())
+    """Enhanced normalization preserving compound terms"""
+    # Keep hyphens and apostrophes but replace other special chars
+    text = re.sub(r"[^a-zA-Z0-9'’-]", " ", text.lower())
+    text = re.sub(r"\s+", " ", text).strip()
+    return text.replace("-", " ")  # Treat hyphens as spaces for matching
 
 
 def get_word_variations(word: str) -> Set[str]:
@@ -55,57 +59,62 @@ def build_enum_variations(enum_class: Type[Enum]) -> Dict[str, Enum]:
 
 
 def get_similarity_score(text1: str, text2: str) -> float:
-    """Get similarity score between two texts."""
-    return difflib.SequenceMatcher(
-        None, 
-        normalize_text(text1), 
-        normalize_text(text2)
-    ).ratio()
+    """Weighted similarity score favoring partial matches"""
+    seq = SequenceMatcher(None, text1, text2)
+    ratio = seq.ratio()
+    
+    # Partial ratio calculation from V1
+    len1, len2 = len(text1), len(text2)
+    partial_ratio = 0.0
+    if len1 <= len2:
+        partial_ratio = SequenceMatcher(None, text1, text2[:len1]).ratio()
+    else:
+        partial_ratio = SequenceMatcher(None, text1[:len2], text2).ratio()
+    
+    # Weighted average favoring partial matches
+    return (ratio * 0.3) + (partial_ratio * 0.7)
 
 
 def find_best_enum_match(
     value: str,
     enum_class: Type[Enum],
-    threshold: float = 0.8
+    threshold: float = 0.6
 ) -> Tuple[Optional[Enum], float]:
-    """Find best matching enum value using multiple strategies.
-    
-    Args:
-        value: The string value to match
-        enum_class: The enum class to match against
-        threshold: Minimum similarity score to consider a match
-        
-    Returns:
-        Tuple of (best matching enum member, similarity score) or (None, 0.0)
-    """
-    if not value:
-        return None, 0.0
-        
     normalized_value = normalize_text(value)
-    variations = build_enum_variations(enum_class)
+    enum_variations = build_enum_variations(enum_class)
     
-    # Try exact matches first
-    if normalized_value in variations:
-        return variations[normalized_value], 1.0
+    # Check for direct match first
+    if normalized_value in enum_variations:
+        return enum_variations[normalized_value], 1.0
     
-    # Try individual words for compound values
-    words = normalized_value.split()
-    if len(words) > 1:
-        for word in words:
-            if word in variations:
-                return variations[word], 0.9
-    
-    # Try fuzzy matching as last resort
-    best_score = 0.0
     best_match = None
+    best_score = 0.0
     
-    for enum_value in enum_class:
-        score = get_similarity_score(value, enum_value.value)
-        if score > best_score and score >= threshold:
+    # Enhanced substring matching with boosted scores
+    for variation, enum_member in enum_variations.items():
+        if normalized_value in variation:
+            # Boost score for contained matches
+            score = min(0.8 + (len(normalized_value)/len(variation)) * 0.2, 1.0)
+            if score > best_score:
+                best_score = score
+                best_match = enum_member
+        elif variation in normalized_value:
+            score = 0.7  # Base score for reverse containment
+            if score > best_score:
+                best_score = score
+                best_match = enum_member
+    
+    if best_score >= threshold:
+        return best_match, best_score
+    
+    # Proceed with fuzzy matching if no substring match
+    for variation, enum_member in enum_variations.items():
+        score = get_similarity_score(normalized_value, variation)
+        if score > best_score:
             best_score = score
-            best_match = enum_value
-            
-    return best_match, best_score
+            best_match = enum_member
+    
+    return (best_match, best_score) if best_score >= threshold else (None, 0.0)
 
 
 def get_default_enum_value(enum_class: Type[Enum]) -> Enum:

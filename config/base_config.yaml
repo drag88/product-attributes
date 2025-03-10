@@ -68,14 +68,14 @@ attributes:
     in_search_context: true
     type: enum
     values: Color
-    threshold: 0.8
+    threshold: 1.0
   
   primary_color_detailed:
     required: true
     in_search_context: true
     type: enum
     values: ColorDetailed
-    threshold: 0.8
+    threshold: 1.0
   
   secondary_colors:
     required: true
@@ -84,7 +84,7 @@ attributes:
     item_type: enum
     values: Color
     max_length: 3
-    threshold: 0.8
+    threshold: 1.0
   
   secondary_colors_detailed:
     required: true
@@ -93,7 +93,7 @@ attributes:
     item_type: enum
     values: ColorDetailed
     max_length: 3
-    threshold: 0.8
+    threshold: 1.0
   
   pattern:
     required: true
@@ -107,7 +107,7 @@ attributes:
     in_search_context: true
     type: enum
     values: Material
-    threshold: 0.8
+    threshold: 1.0
   
   embellishment:
     required: true
@@ -123,7 +123,7 @@ attributes:
     in_search_context: true
     type: enum
     values: EmbellishmentLevel
-    threshold: 0.8
+    threshold: 1.0
   
   embellishment_detailed:
     required: true
@@ -138,7 +138,7 @@ attributes:
     item_type: enum
     values: Occasion
     max_length: 3
-    threshold: 0.8
+    threshold: 1.0
   
   occasion_detailed:
     required: true
@@ -152,7 +152,7 @@ attributes:
     type: list
     item_type: enum
     values: Style
-    threshold: 0.8
+    threshold: 1.0
   
   care_instructions:
     required: true
@@ -178,7 +178,7 @@ attributes:
     item_type: enum
     values: Gender
     default: [WOMEN]
-    threshold: 0.9
+    threshold: 1.0
   
   age_group:
     required: true
@@ -187,7 +187,7 @@ attributes:
     item_type: enum
     values: AgeGroup
     default: [ADULT]
-    threshold: 0.9
+    threshold: 1.0
   
   coordinating_items:
     required: true

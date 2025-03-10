@@ -169,7 +169,7 @@ class ClothingItem(BaseModel, ABC):
 
     @field_validator(
         'primary_color', 'primary_color_detailed', 'material', 
-        'embellishment_level', mode='before'
+        mode='before'
     )
     @classmethod
     def validate_single_enum_fields(cls, v: Any, info: ValidationInfo) -> Enum:
@@ -188,8 +188,7 @@ class ClothingItem(BaseModel, ABC):
             default_thresholds = {
                 'primary_color': 0.8,
                 'primary_color_detailed': 0.8,
-                'material': 0.8,
-                'embellishment_level': 0.8
+                'material': 0.8
             }
             thresholds[field_name] = default_thresholds.get(field_name, 0.8)
         
@@ -207,11 +206,6 @@ class ClothingItem(BaseModel, ABC):
                 Material.OTHERS, 
                 thresholds.get('material', 0.8), 
                 True
-            ),
-            'embellishment_level': (
-                EmbellishmentLevel, 
-                EmbellishmentLevel.NONE, 
-                thresholds.get('embellishment_level', 0.8)
             )
         }
         
@@ -231,7 +225,7 @@ class ClothingItem(BaseModel, ABC):
     @field_validator(
         'secondary_colors', 'secondary_colors_detailed', 
         'occasions', 'style', 'gender', 'age_group', 
-        'embellishment', mode='before'
+        mode='before'
     )
     @classmethod
     def validate_enum_lists(cls, v: Any, info: ValidationInfo) -> List[Enum]:
@@ -250,11 +244,10 @@ class ClothingItem(BaseModel, ABC):
             default_thresholds = {
                 'secondary_colors': 0.8,
                 'secondary_colors_detailed': 0.8,
-                'occasions': 0.8,
+                'occasions': 0.6,
                 'style': 0.8,
                 'gender': 0.9,
-                'age_group': 0.9,
-                'embellishment': 0.8
+                'age_group': 0.9
             }
             thresholds[field_name] = default_thresholds.get(field_name, 0.8)
         
@@ -267,16 +260,14 @@ class ClothingItem(BaseModel, ABC):
                 thresholds.get('secondary_colors_detailed', 0.8)
             ),
             'occasions': (
-                Occasion, Occasion.OTHERS, thresholds.get('occasions', 0.7)
+                Occasion, 
+                Occasion.OTHERS, 
+                thresholds.get('occasions', 0.6)
             ),
             'style': (Style, Style.OTHERS, thresholds.get('style', 0.7)),
             'gender': (Gender, Gender.WOMEN, thresholds.get('gender', 0.9)),
             'age_group': (
                 AgeGroup, AgeGroup.ADULT, thresholds.get('age_group', 0.9)
-            ),
-            'embellishment': (
-                Embellishment, Embellishment.NONE, 
-                thresholds.get('embellishment', 0.7)
             )
         }
         
@@ -310,6 +301,34 @@ class ClothingItem(BaseModel, ABC):
                 raise ValueError(f"Invalid hex code format: {hex_code}")
         
         return v
+
+    @field_validator('embellishment_level', mode='before')
+    @classmethod
+    def validate_embellishment_level(cls, v: Any, info: ValidationInfo) -> Enum:
+        return validate_enum_field(
+            v, EmbellishmentLevel, 'embellishment_level',
+            default=EmbellishmentLevel.NONE,
+            threshold=cls._attr_config.get('embellishment_level', {}).get('threshold', 0.7)
+        )
+
+    @field_validator('embellishment', mode='before')
+    @classmethod 
+    def validate_embellishment_list(cls, v: Any, info: ValidationInfo) -> List[Enum]:
+        return validate_enum_list(
+            v, Embellishment, 'embellishment',
+            default=Embellishment.NONE,
+            threshold=cls._attr_config.get('embellishment', {}).get('threshold', 0.6)
+        )
+
+    @field_validator('pattern', mode='before')
+    @classmethod
+    def validate_patterns(cls, v: Any, info: ValidationInfo) -> List[Pattern]:
+        return validate_enum_list(
+            v,
+            Pattern,
+            'pattern',
+            threshold=cls._attr_config.get('pattern', {}).get('threshold', 0.6)
+        )
 
     def build_search_context(self) -> 'ClothingItem':
         """

@@ -34,21 +34,21 @@ attributes:
     in_search_context: true
     type: enum
     values: SareeType
-    threshold: 0.9
+    threshold: 1.0
   
   border_width:
     required: true
     in_search_context: true
     type: enum
     values: BorderWidth
-    threshold: 0.8
+    threshold: 1.0
   
   border_design:
     required: true
     in_search_context: true
     type: enum
     values: BorderDesign
-    threshold: 0.8
+    threshold: 1.0
   
   border_design_details:
     required: true
@@ -62,7 +62,7 @@ attributes:
     in_search_context: true
     type: enum
     values: PalluDesign
-    threshold: 0.8
+    threshold: 1.0
   
   # Physical Characteristics
   material:
@@ -70,7 +70,7 @@ attributes:
     in_search_context: true
     type: enum
     values: Material
-    threshold: 0.8
+    threshold: 1.0
   
   length:
     required: true
@@ -102,14 +102,14 @@ attributes:
     in_search_context: true
     type: enum
     values: Color
-    threshold: 0.8
+    threshold: 1.0
   
   primary_color_detailed:
     required: true
     in_search_context: true
     type: enum
     values: ColorDetailed
-    threshold: 0.8
+    threshold: 1.0
   
   primary_color_hex:
     required: true
@@ -124,7 +124,7 @@ attributes:
     item_type: enum
     values: Color
     max_length: 5
-    threshold: 0.8
+    threshold: 1.0
   
   secondary_colors_detailed:
     required: true
@@ -133,7 +133,7 @@ attributes:
     item_type: enum
     values: ColorDetailed
     max_length: 5
-    threshold: 0.8
+    threshold: 1.0
   
   secondary_colors_detailed_hex:
     required: true
@@ -163,7 +163,7 @@ attributes:
     item_type: enum
     values: Pattern
     default: [OTHERS]
-    threshold: 0.8
+    threshold: 1.0
   
   embellishment:
     required: true
@@ -172,7 +172,7 @@ attributes:
     item_type: enum
     values: Embellishment
     default: []
-    threshold: 0.8
+    threshold: 1.0
   
   embellishment_level:
     required: true
@@ -180,7 +180,7 @@ attributes:
     type: enum
     values: EmbellishmentLevel
     default: NONE
-    threshold: 0.8
+    threshold: 1.0
   
   embellishment_detailed:
     required: true
@@ -208,7 +208,7 @@ attributes:
     in_search_context: false
     type: enum
     values: Material
-    threshold: 0.8
+    threshold: 1.0
   
   pre_draped:
     required: false
@@ -231,7 +231,7 @@ attributes:
     values: Occasion
     min_length: 2
     max_length: 4
-    threshold: 0.8
+    threshold: 1.0
   
   occasion_detailed:
     required: true
@@ -247,7 +247,7 @@ attributes:
     values: Style
     min_length: 1
     max_length: 2
-    threshold: 0.8
+    threshold: 1.0
   
   # Target Demographics
   gender:
@@ -257,7 +257,7 @@ attributes:
     item_type: enum
     values: Gender
     default: [WOMEN]
-    threshold: 0.9
+    threshold: 1.0
   
   age_group:
     required: true
@@ -266,7 +266,7 @@ attributes:
     item_type: enum
     values: AgeGroup
     default: [ADULT]
-    threshold: 0.9
+    threshold: 1.0
   
   # Product Care and Sizing
   care_instructions:
