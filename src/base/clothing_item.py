@@ -75,7 +75,7 @@ class ClothingItem(BaseModel, ABC):
         default_factory=list,
         max_length=_attr_config.get('occasions', {}).get('max_length', 3)
     )
-    occasion_detailed: List[str] = Field(default_factory=list)
+    occasions_detailed: List[str] = Field(default_factory=list)
     style: List[Style] = Field(default_factory=list)
     
     # Product details

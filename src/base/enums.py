@@ -251,9 +251,10 @@ class Style(str, Enum):
 
 
 class Gender(str, Enum):
-    WOMEN = "Women"
-    MEN = "Men"
+    FEMALE = "Female"
+    MALE = "Male"
     UNISEX = "Unisex"
+    
 
     @classmethod
     def allowed_values(cls) -> Set[str]:

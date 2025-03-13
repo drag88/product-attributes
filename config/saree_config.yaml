@@ -1,322 +1,116 @@
 extends: base_config.yaml
 
 attributes:
-  # Basic Product Information
-  brand:
-    required: true
-    in_search_context: false
-    type: string
-  
-  brand_title:
-    required: true
-    in_search_context: false
-    type: string
-  
-  title:
-    required: true
-    in_search_context: true
-    type: string
-  
-  description:
-    required: true
-    in_search_context: true
-    type: string
-  
-  price:
-    required: true
-    in_search_context: false
-    type: float
-    min: 0
-  
-  # Saree-Specific Attributes
   saree_type:
     required: true
+    data_type: string
+    item_type: enum
+    allowed_values: SareeType
+    threshold: 0.8
     in_search_context: true
-    type: enum
-    values: SareeType
-    threshold: 1.0
   
   border_width:
     required: true
+    data_type: string
+    item_type: enum
+    allowed_values: BorderWidth
+    threshold: 0.8
     in_search_context: true
-    type: enum
-    values: BorderWidth
-    threshold: 1.0
   
   border_design:
     required: true
+    data_type: string
+    item_type: enum
+    allowed_values: BorderDesign
+    threshold: 0.8
     in_search_context: true
-    type: enum
-    values: BorderDesign
-    threshold: 1.0
   
   border_design_details:
     required: true
-    in_search_context: true
-    type: list
+    data_type: list
+    item_type: string
     min_length: 3
     max_length: 5
+    in_search_context: true
   
   pallu_design:
     required: true
+    data_type: list
+    item_type: string
+    allowed_values: PalluDesign
+    threshold: 0.8
     in_search_context: true
-    type: enum
-    values: PalluDesign
-    threshold: 1.0
-  
-  # Physical Characteristics
-  material:
-    required: true
-    in_search_context: true
-    type: enum
-    values: Material
-    threshold: 1.0
-  
+
   length:
     required: true
-    in_search_context: false
-    type: float
+    data_type: float
+    item_type: float
     min: 0
     max: 12
     unit: "meters"
+    in_search_context: false
   
   width:
     required: true
-    in_search_context: false
-    type: float
+    data_type: float
+    item_type: float
     min: 0.9
     max: 1.4
     unit: "meters"
+    in_search_context: false
   
   weight:
     required: true
-    in_search_context: false
-    type: float
+    data_type: float
+    item_type: float
     min: 300
     max: 1000
     unit: "grams"
+    in_search_context: false
   
   # Color Information
-  primary_color:
+  color_pairings_hex:
     required: true
-    in_search_context: true
-    type: enum
-    values: Color
-    threshold: 1.0
-  
-  primary_color_detailed:
-    required: true
-    in_search_context: true
-    type: enum
-    values: ColorDetailed
-    threshold: 1.0
-  
-  primary_color_hex:
-    required: true
-    in_search_context: false
-    type: string
-    pattern: "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"
-  
-  secondary_colors:
-    required: true
-    in_search_context: true
-    type: list
-    item_type: enum
-    values: Color
-    max_length: 5
-    threshold: 1.0
-  
-  secondary_colors_detailed:
-    required: true
-    in_search_context: true
-    type: list
-    item_type: enum
-    values: ColorDetailed
-    max_length: 5
-    threshold: 1.0
-  
-  secondary_colors_detailed_hex:
-    required: true
-    in_search_context: false
-    type: list
-    item_type: string
-  
-  secondary_color_hexes:
-    required: true
-    in_search_context: false
-    type: list
-    item_type: string
-  
-  color_pairings:
-    required: true
-    in_search_context: false
-    type: list
+    data_type: list
     item_type: string
     pattern: "^#([A-Fa-f0-9]{6})$"
     length: 5
-  
-  # Design Elements
-  pattern:
-    required: true
-    in_search_context: true
-    type: list
-    item_type: enum
-    values: Pattern
-    default: [OTHERS]
-    threshold: 1.0
-  
-  embellishment:
-    required: true
-    in_search_context: true
-    type: list
-    item_type: enum
-    values: Embellishment
-    default: []
-    threshold: 1.0
-  
-  embellishment_level:
-    required: true
-    in_search_context: true
-    type: enum
-    values: EmbellishmentLevel
-    default: NONE
-    threshold: 1.0
-  
-  embellishment_detailed:
-    required: true
-    in_search_context: true
-    type: list
-    item_type: string
-  
-  unique_design_element:
-    required: true
-    in_search_context: true
-    type: list
-    min_length: 1
-    max_length: 3
+    in_search_context: false
   
   # Additional Features
   blouse_included:
     required: true
-    in_search_context: false
-    type: boolean
+    data_type: boolean
+    item_type: boolean
     default: false
+    in_search_context: false
   
   blouse_material:
     required: false
-    required_if: blouse_included=true
+    data_type: string
+    item_type: enum
+    allowed_values: Material
+    threshold: 0.8
     in_search_context: false
-    type: enum
-    values: Material
-    threshold: 1.0
   
   pre_draped:
     required: false
-    in_search_context: false
-    type: boolean
+    data_type: boolean
+    item_type: boolean
     default: false
+    in_search_context: false
   
   reversible:
-    required: false 
-    in_search_context: false
-    type: boolean
-    default: false
-  
-  # Usage Context
-  occasions:
-    required: true
-    in_search_context: true
-    type: list
-    item_type: enum
-    values: Occasion
-    min_length: 2
-    max_length: 4
-    threshold: 1.0
-  
-  occasion_detailed:
-    required: true
-    in_search_context: true
-    type: list
-    item_type: string
-  
-  style:
-    required: true
-    in_search_context: true
-    type: list
-    item_type: enum
-    values: Style
-    min_length: 1
-    max_length: 2
-    threshold: 1.0
-  
-  # Target Demographics
-  gender:
-    required: true
-    in_search_context: false
-    type: list
-    item_type: enum
-    values: Gender
-    default: [WOMEN]
-    threshold: 1.0
-  
-  age_group:
-    required: true
-    in_search_context: false
-    type: list
-    item_type: enum
-    values: AgeGroup
-    default: [ADULT]
-    threshold: 1.0
-  
-  # Product Care and Sizing
-  care_instructions:
-    required: true
-    in_search_context: true
-    type: string
-  
-  size:
-    required: true
-    in_search_context: true
-    type: list
-    item_type: string
-  
-  # Styling Information
-  coordinating_items:
-    required: true
-    in_search_context: true
-    type: object
-    properties:
-      clothing:
-        type: list
-        length: 5
-      accessories:
-        type: list
-        length: 5
-      footwear:
-        type: list
-        length: 5
-      additional_apparel:
-        type: list
-        length: 3
-      styling_suggestions:
-        type: list
-        length: 3
-  
-  # Search and Embedding Data
-  search_context:
-    required: true
-    in_search_context: false
-    type: string
-  
-  text_embedding:
-    required: true
-    in_search_context: false
-    type: list
-    item_type: float
-  
-  # Validation
-  validation_errors:
     required: false
+    data_type: boolean
+    item_type: boolean
+    default: false
     in_search_context: false
-    type: list
-    item_type: string 
+
+  styling_suggestions:
+    required: true
+    data_type: string
+    item_type: string
+    max_length: 3
+    in_search_context: false
+  

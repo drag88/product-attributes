@@ -20,11 +20,11 @@ api:
 
 paths:
   input:
-    product_data: "/Users/aswinsreenivas/Projects/D2C Search Engine/uplyft_server/uplyft-shopify-scraper/data/02_intermediate/processed_dataframe.csv"
-    images_dir: "/Users/aswinsreenivas/Projects/D2C Search Engine/uplyft_server/uplyft-shopify-scraper/data/02_intermediate/suta/images"
+    product_data: "C:/Users/asreenivas/Downloads/02_intermediate/processed_dataframe.csv"
+    images_dir: "C:/Users/asreenivas/Downloads/02_intermediate/suta/images"
   
   output:
-    base_dir: "/Users/aswinsreenivas/Projects/D2C Search Engine/uplyft_server/product_attributes/output"
+    base_dir: "D:/OneDrive - StarHub Ltd/5. Scripts/product-attributes/output"
     structure:
       attributes: "{product_type}/attributes"
       images: "{product_type}/images"
@@ -38,177 +38,260 @@ prompts:
 attributes:
   brand:
     required: true
-    in_search_context: true
-    type: string
+    data_type: string
+    item_type: string
     default: "suta"
-  
+    in_search_context: true
+
   brand_title:
     required: true
+    data_type: string
+    item_type: string
     in_search_context: true
-    type: string
-  
+
   title:
     required: true
+    data_type: string
+    item_type: string
     in_search_context: true
-    type: string
-  
+
   description:
     required: true
+    data_type: string
+    item_type: string
     in_search_context: true
-    type: string
-  
+
   price:
     required: true
-    in_search_context: true
-    type: float
+    data_type: float
+    item_type: float
     min: 0
-  
+    in_search_context: true
+
   primary_color:
     required: true
+    data_type: string
+    item_type: enum
+    allowed_values: Color
+    threshold: 0.8
     in_search_context: true
-    type: enum
-    values: Color
-    threshold: 1.0
-  
+
+  primary_color_hex:
+    required: true
+    data_type: string
+    item_type: string
+    pattern: "^#([A-Fa-f0-9]{6})$"
+    in_search_context: false
+
   primary_color_detailed:
     required: true
+    data_type: string
+    item_type: enum
+    allowed_values: ColorDetailed
+    threshold: 0.8
     in_search_context: true
-    type: enum
-    values: ColorDetailed
-    threshold: 1.0
-  
+
   secondary_colors:
     required: true
-    in_search_context: true
-    type: list
+    data_type: list
     item_type: enum
-    values: Color
+    allowed_values: Color
     max_length: 3
-    threshold: 1.0
+    threshold: 0.8
+    in_search_context: true
   
+  secondary_color_hex:
+    required: true
+    data_type: list
+    item_type: string
+    max_length: 3
+    pattern: "^#([A-Fa-f0-9]{6})$"
+    in_search_context: false
+  
+  secondary_colors_detailed_hex:
+    required: true
+    data_type: list
+    item_type: string
+    pattern: "^#([A-Fa-f0-9]{6})$"
+    max_length: 3
+    in_search_context: true
+
   secondary_colors_detailed:
     required: true
-    in_search_context: true
-    type: list
+    data_type: list
     item_type: enum
-    values: ColorDetailed
+    allowed_values: ColorDetailed
     max_length: 3
-    threshold: 1.0
-  
+    threshold: 0.8
+    in_search_context: true
+
   pattern:
     required: true
-    in_search_context: true
-    type: list
+    data_type: list
     item_type: enum
-    values: Pattern
-  
+    allowed_values: Pattern
+    max_length: 3
+    threshold: 0.8
+    in_search_context: true
+
   material:
     required: true
+    data_type: string
+    item_type: enum
+    allowed_values: Material
+    threshold: 0.8
     in_search_context: true
-    type: enum
-    values: Material
-    threshold: 1.0
-  
+
   embellishment:
     required: true
-    in_search_context: true
-    type: list
+    data_type: list
     item_type: enum
-    values: Embellishment
+    allowed_values: Embellishment
     max_length: 5
     threshold: 0.8
-  
+    in_search_context: true
+
   embellishment_level:
     required: true
+    data_type: string
+    item_type: enum
+    allowed_values: EmbellishmentLevel
+    threshold: 0.8
     in_search_context: true
-    type: enum
-    values: EmbellishmentLevel
-    threshold: 1.0
-  
+
   embellishment_detailed:
     required: true
-    in_search_context: true
-    type: list
+    data_type: list
     item_type: string
-  
+    max_length: 5
+    in_search_context: true
+
   occasions:
     required: true
-    in_search_context: true
-    type: list
+    data_type: list
     item_type: enum
-    values: Occasion
+    allowed_values: Occasion
     max_length: 3
-    threshold: 1.0
-  
-  occasion_detailed:
-    required: true
+    threshold: 0.8
     in_search_context: true
-    type: list
+
+  occasions_detailed:
+    required: true
+    data_type: list
     item_type: string
-  
+    max_length: 5
+    in_search_context: true
+
   style:
     required: true
-    in_search_context: true
-    type: list
+    data_type: list
     item_type: enum
-    values: Style
-    threshold: 1.0
-  
+    allowed_values: Style
+    max_length: 3
+    threshold: 0.8
+    in_search_context: true
+
   care_instructions:
     required: true
+    data_type: string
+    item_type: string
     in_search_context: true
-    type: string
-  
+
   size:
     required: true
+    data_type: list
+    item_type: string
     in_search_context: true
-    type: list
-  
+
   unique_design_element:
     required: true
-    in_search_context: true
-    type: list
+    data_type: list
+    item_type: string
     min_length: 1
     max_length: 3
-  
+    in_search_context: true
+
   gender:
     required: true
-    in_search_context: true
-    type: list
+    data_type: list
     item_type: enum
-    values: Gender
-    default: [WOMEN]
+    allowed_values: Gender
+    default: [FEMALE]
     threshold: 1.0
-  
+    in_search_context: true
+
   age_group:
     required: true
-    in_search_context: true
-    type: list
+    data_type: list
     item_type: enum
-    values: AgeGroup
+    allowed_values: AgeGroup
     default: [ADULT]
     threshold: 1.0
-  
+    in_search_context: true
+
   coordinating_items:
     required: true
-    in_search_context: true
-    type: object
+    data_type: object
+    item_type: object
     properties:
       clothing:
-        type: list
-        length: 5
+        data_type: list
+        item_type: string
+        max_length: 5
       accessories:
-        type: list
-        length: 5
+        data_type: list
+        item_type: string
+        max_length: 5
       footwear:
-        type: list
-        length: 5
+        data_type: list
+        item_type: string
+        max_length: 5
       additional_apparel:
-        type: list
-        length: 3
+        data_type: list
+        item_type: string
+        max_length: 3
       styling_suggestions:
-        type: list
-        length: 3
+        data_type: list
+        item_type: string
+        max_length: 3
+    in_search_context: true
+
+  product_image_link:
+    required: true
+    data_type: list
+    item_type: string
+    in_search_context: false
+
+  product_link:
+    required: true
+    data_type: list
+    item_type: string
+    in_search_context: false
+
+  search_context:
+    required: true
+    data_type: string
+    item_type: string
+    in_search_context: false
+
+  text_embedding:
+    required: true
+    data_type: list
+    item_type: float
+    in_search_context: false
+
+  image_embedding:
+    required: true
+    data_type: list
+    item_type: float
+    in_search_context: false
+
+# Validation
+validation_errors:
+  required: false
+  data_type: list
+  item_type: string
+  in_search_context: false 
 
 logging:
   level: INFO

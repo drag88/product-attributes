@@ -1,6 +1,6 @@
 from pathlib import Path
 import yaml
-from typing import Dict, Any, List, Optional, Set
+from typing import Dict, Any, List, Optional, Set, Union, Tuple
 import logging
 from functools import lru_cache
 
@@ -56,7 +56,8 @@ class ConfigManager:
                 if config_file.name == 'base_config.yaml':
                     continue
                 
-                product_type = config_file.stem.replace('_config', '')
+                # Store product type in lowercase for case-insensitive lookup
+                product_type = config_file.stem.replace('_config', '').lower()
                 cls._product_types.add(product_type)
                 
                 try:
@@ -85,14 +86,15 @@ class ConfigManager:
         """
         Get configuration for a specific product type.
         
-        For backward compatibility, this returns the merged configuration
-        (base + product-specific) to match the behavior of the old ConfigLoader.
+        Returns the merged configuration (base + product-specific).
         """
         return cls.get_merged_config(product_type)
     
     @classmethod
     def get_raw_product_config(cls, product_type: str) -> Dict[str, Any]:
         """Get the raw (unmerged) configuration for a specific product type."""
+        # Convert to lowercase for case-insensitive lookup
+        product_type = product_type.lower()
         if product_type not in cls._product_configs:
             logger.warning(f"No configuration found for product type: {product_type}")
             return {}
@@ -102,13 +104,21 @@ class ConfigManager:
     @lru_cache(maxsize=32)
     def get_merged_config(cls, product_type: str) -> Dict[str, Any]:
         """Get merged configuration (base + product-specific)."""
-        # Check cache first
-        if product_type in cls._merged_configs:
-            return cls._merged_configs[product_type]
+        # Convert to lowercase for case-insensitive lookup
+        product_type = product_type.lower()
         
-        # Get configs
+        # Ensure configs are loaded
+        cls.get_instance()
+        
+        # Get base config
         base_config = cls.get_base_config()
-        product_config = cls.get_raw_product_config(product_type)
+        
+        # Get product-specific config
+        if product_type not in cls._product_configs:
+            logger.warning(f"No configuration found for product type: {product_type}")
+            return base_config.copy()  # Return just base config if product config not found
+        
+        product_config = cls._product_configs[product_type]
         
         # Handle 'extends' for backward compatibility
         if 'extends' in product_config:
@@ -122,26 +132,32 @@ class ConfigManager:
                 except Exception as e:
                     logger.error(f"Error loading extends config: {e}")
         
-        # Deep merge the configurations
+        # Deep merge base config with product config
         merged_config = cls._deep_merge(base_config.copy(), product_config)
-        
-        # Cache the result
-        cls._merged_configs[product_type] = merged_config
         return merged_config
     
     @classmethod
     def _deep_merge(cls, base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
         """Deep merge two dictionaries."""
+        result = base.copy()  # Create a new copy to avoid modifying the original
+        
         for key, value in override.items():
             # Skip the 'extends' key for backward compatibility
             if key == 'extends':
                 continue
                 
-            if key in base and isinstance(base[key], dict) and isinstance(value, dict):
-                cls._deep_merge(base[key], value)
+            if (
+                key in result and 
+                isinstance(result[key], dict) and 
+                isinstance(value, dict)
+            ):
+                # Recursively merge nested dictionaries
+                result[key] = cls._deep_merge(result[key], value)
             else:
-                base[key] = value
-        return base
+                # For non-dict values or new keys, just override/add
+                result[key] = value
+                
+        return result
     
     @classmethod
     def get_available_product_types(cls) -> List[str]:
@@ -154,6 +170,141 @@ class ConfigManager:
         merged_config = cls.get_merged_config(product_type)
         attributes = merged_config.get('attributes', {})
         return attributes.get(attribute_name)
+    
+    @classmethod
+    def get_attribute_data_type(cls, product_type: str, attribute_name: str) -> Optional[str]:
+        """Get the data_type for a specific attribute."""
+        attr_config = cls.get_attribute_config(product_type, attribute_name)
+        if not attr_config:
+            return None
+        
+        return attr_config.get('data_type')
+    
+    @classmethod
+    def get_attribute_item_type(cls, product_type: str, attribute_name: str) -> Optional[str]:
+        """Get the item_type for a specific attribute."""
+        attr_config = cls.get_attribute_config(product_type, attribute_name)
+        if not attr_config:
+            return None
+        
+        return attr_config.get('item_type')
+    
+    @classmethod
+    def is_enum_attribute(cls, product_type: str, attribute_name: str) -> bool:
+        """Check if an attribute is an enum type."""
+        attr_config = cls.get_attribute_config(product_type, attribute_name)
+        if not attr_config:
+            return False
+        
+        # Check if it's directly an enum
+        if attr_config.get('data_type') == 'string' and attr_config.get('item_type') == 'enum':
+            return True
+        
+        # Check if it's a list of enums
+        if attr_config.get('data_type') == 'list' and attr_config.get('item_type') == 'enum':
+            return True
+        
+        return False
+    
+    @classmethod
+    def get_enum_values(cls, product_type: str, attribute_name: str) -> Optional[str]:
+        """Get the enum class name for an enum attribute."""
+        attr_config = cls.get_attribute_config(product_type, attribute_name)
+        if not attr_config:
+            return None
+        
+        return attr_config.get('allowed_values')
+    
+    @classmethod
+    def get_attribute_threshold(cls, product_type: str, attribute_name: str) -> float:
+        """Get the threshold for an enum attribute."""
+        attr_config = cls.get_attribute_config(product_type, attribute_name)
+        if not attr_config:
+            return 0.8  # Default threshold
+        
+        return attr_config.get('threshold', 0.8)
+    
+    @classmethod
+    def validate_attribute_config(cls, attr_config: Dict[str, Any]) -> List[str]:
+        """
+        Validate an attribute configuration against the standardized structure.
+        
+        Args:
+            attr_config: The attribute configuration to validate
+            
+        Returns:
+            List of validation error messages, empty if valid
+        """
+        errors = []
+        
+        # Check for required fields
+        if 'required' not in attr_config:
+            errors.append("Missing 'required' field")
+        
+        if 'data_type' not in attr_config:
+            errors.append("Missing 'data_type' field")
+        else:
+            data_type = attr_config['data_type']
+            
+            # All attributes should have item_type
+            if 'item_type' not in attr_config:
+                errors.append("Missing 'item_type' field")
+            else:
+                item_type = attr_config['item_type']
+                
+                # Validate based on data_type and item_type
+                if data_type == 'list':
+                    # For enum lists, check for allowed_values
+                    if item_type == 'enum' and 'allowed_values' not in attr_config:
+                        errors.append("Enum list missing 'allowed_values'")
+                    
+                    # For enum lists, check for threshold
+                    if item_type == 'enum' and 'threshold' not in attr_config:
+                        errors.append("Enum list missing 'threshold'")
+                
+                elif data_type == 'string' and item_type == 'enum':
+                    # Check for allowed_values
+                    if 'allowed_values' not in attr_config:
+                        errors.append("Enum attribute missing 'allowed_values'")
+                    
+                    # Check for threshold
+                    if 'threshold' not in attr_config:
+                        errors.append("Enum attribute missing 'threshold'")
+                
+                elif data_type == 'object':
+                    # Check for properties
+                    if 'properties' not in attr_config:
+                        errors.append("Object attribute missing 'properties'")
+        
+        # Check for in_search_context
+        if 'in_search_context' not in attr_config:
+            errors.append("Missing 'in_search_context' field")
+        
+        return errors
+    
+    @classmethod
+    def validate_product_config(cls, product_type: str) -> Dict[str, List[str]]:
+        """
+        Validate a product configuration against the standardized structure.
+        
+        Args:
+            product_type: The product type to validate
+            
+        Returns:
+            Dictionary mapping attribute names to lists of validation errors
+        """
+        merged_config = cls.get_merged_config(product_type)
+        validation_results = {}
+        
+        if 'attributes' not in merged_config:
+            return {'_global': ['Missing attributes section']}
+        
+        for attr_name, attr_config in merged_config['attributes'].items():
+            errors = cls.validate_attribute_config(attr_config)
+            if errors:
+                validation_results[attr_name] = errors
+        
+        return validation_results
     
     @classmethod
     def add_product_type(cls, product_type: str, config: Dict[str, Any]) -> bool:

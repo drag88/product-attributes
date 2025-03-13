@@ -132,7 +132,7 @@ def validate_enum_field(
     enum_cls: Type[Enum],
     field_name: str,
     default: Optional[Enum] = None,
-    threshold: float = 0.7,
+    threshold: float = 0.8,
     allow_compound: bool = True
 ) -> Enum:
     """Validate and convert a value to an enum member.
@@ -151,24 +151,54 @@ def validate_enum_field(
     if isinstance(value, enum_cls):
         return value
     
-    if not value:
-        return default if default is not None else get_default_enum_value(enum_cls)
+    if not value or (isinstance(value, str) and not value.strip()):
+        default_value = default if default is not None else get_default_enum_value(enum_cls)
+        logger.debug(f"Empty value for {field_name}, using default: {default_value.value}")
+        return default_value
     
     if isinstance(value, str):
+        # Try exact match first
         try:
             return enum_cls(value)
         except ValueError:
             pass
-        
+            
+        # Try fuzzy matching
         best_match, score = find_best_enum_match(value, enum_cls)
-        if best_match and score >= threshold:
+        if best_match and score >= threshold:  # Strictly respect threshold
             logger.info(
                 f"Matched {field_name} '{value}' to '{best_match.value}' "
                 f"(score: {score})"
             )
             return best_match
+            
+        # If threshold not met, try compound word matching if allowed
+        if allow_compound and ' ' in value:
+            words = value.split()
+            for word in words:
+                best_match, score = find_best_enum_match(word, enum_cls)
+                if best_match and score >= threshold:  # Strictly respect threshold
+                    logger.info(
+                        f"Matched {field_name} word '{word}' to "
+                        f"'{best_match.value}' (score: {score})"
+                    )
+                    return best_match
     
-    logger.warning(f"No match for {field_name} '{value}', using default")
+    # If we get here, try a lower threshold as a fallback
+    if isinstance(value, str):
+        fallback_threshold = max(threshold - 0.2, 0.5)  # Lower threshold but not below 0.5
+        best_match, score = find_best_enum_match(value, enum_cls, threshold=fallback_threshold)
+        if best_match and score >= fallback_threshold:
+            logger.info(
+                f"Fallback match for {field_name} '{value}' to '{best_match.value}' "
+                f"(score: {score})"
+            )
+            return best_match
+    
+    logger.warning(
+        f"No match for {field_name} '{value}' with threshold {threshold}, "
+        "using default"
+    )
     return default if default is not None else get_default_enum_value(enum_cls)
 
 
@@ -177,9 +207,9 @@ def validate_enum_list(
     enum_cls: Type[Enum],
     field_name: str,
     default: Optional[Enum] = None,
-    threshold: float = 0.7
+    threshold: float = 0.8
 ) -> List[Enum]:
-    """Validate and convert a list of values to enum members.
+    """Validate a list of values against an enum class.
     
     Args:
         values: List of values to validate
@@ -189,17 +219,28 @@ def validate_enum_list(
         threshold: Minimum similarity score for fuzzy matching
         
     Returns:
-        List of matched enum members
+        List of validated enum members
     """
     if not values:
-        default_value = default if default is not None else get_default_enum_value(enum_cls)
-        return [default_value]
-    
-    validated = []
-    for value in (values if isinstance(values, list) else [values]):
-        validated.append(
-            validate_enum_field(
-                value, enum_cls, field_name, default, threshold
-            )
+        # Return empty list instead of list with default value
+        return []
+        
+    if not isinstance(values, list):
+        values = [values]
+        
+    result = []
+    for value in values:
+        validated = validate_enum_field(
+            value,
+            enum_cls,
+            field_name,
+            default=default,
+            threshold=threshold  # Pass through threshold
         )
-    return validated 
+        if validated is not None:
+            result.append(validated)
+            
+    # Only return default if result is empty and default is provided
+    if not result and default:
+        return [default]
+    return result 

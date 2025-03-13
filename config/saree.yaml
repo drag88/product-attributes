@@ -1,7 +1,0 @@
-attributes:
-  saree_type:
-    threshold: 0.65
-  pattern:
-    threshold: 0.6
-  border_design:
-    threshold: 0.7 

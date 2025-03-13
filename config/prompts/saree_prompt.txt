@@ -18,10 +18,10 @@ Requirements:
    - "primary_color_hex": Provide the exact hex code for the primary color (e.g., #FF5733)
    - "primary_color_detailed": Identify and list the single most dominant color in the product as primary_color_detailed. primary_color_detailed MUST be one of: ColorDetailed (ONLY for the saree)
    - "secondary_colors": Identify and list the next most prominent colors in the product, secondary_colors MUST be one of: {', '.join(Color.__members__.keys())} and ONLY for the saree
-   - "secondary_color_hexes": Provide the exact hex code for each secondary color in a comma-separated python list format (e.g., #33FF57, #5733FF)
+   - "secondary_color_hex": Provide the exact hex code for each secondary color in a comma-separated python list format (e.g., #33FF57, #5733FF)
    - "secondary_colors_detailed": Identify and list the next most prominent colors from ONLY the saree, if any in a comma-separated python list format. For each secondary color, provide a closest matching secondary_colors_detailed from ColorDetailed enum
    - "secondary_colors_detailed_hex": REQUIRED - Provide the exact hex code for each secondary_colors_detailed in a comma-separated python list format. Must match the order of secondary_colors_detailed.
-   - "color_pairings": List of complementary color hex codes that can be used to style the product in a comma-separated python list format. MUST be a list of EXACTLY 5 hex codes (e.g., ["#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF"])
+   - "color_pairings_hex": List of complementary color hex codes that can be used to style the product in a comma-separated python list format. MUST be a list of EXACTLY 5 hex codes (e.g., ["#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF"])
    - "pattern": Describe the patterns only in SAREE in a comma-separated python list format. pattern MUST ONLY use these values: {', '.join(Pattern.__members__.keys())} (based on patterns in saree ONLY). Make sure to include only patterns and not embellishments that are actually present in the saree.
    - If primary_color or secondary_colors are not found in the {', '.join(Color.__members__.keys())}, use "Others"
    - If pattern doesn't match exactly, use 'Others'
@@ -107,7 +107,7 @@ VALIDATION RULES:
 - For patterns, use "Others" if the exact pattern is not in the list
 - For embellishments, choose the closest match from allowed values
 - All color hex codes must be 6 digits (e.g., "#FF0000" not "#F00")
-- color_pairings must be a list of EXACTLY 5 hex codes
+- color_pairings_hex must be a list of EXACTLY 5 hex codes
 - coordinating_items MUST NOT contain empty arrays - each category must have the minimum number of suggestions specified
 
 Return only valid JSON wrapped in <json></json> tags. 
