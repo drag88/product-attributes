@@ -1,16 +1,15 @@
-from typing import Dict, Any, Type, List, Optional, Tuple
+from typing import Dict, Any, List, Optional
 import json
 import logging
 from pathlib import Path
 import re
 from enum import Enum
-from functools import lru_cache
-import base64
 import time
 import pandas as pd
 import traceback
 from importlib import import_module
 from src.base.clothing_item import ClothingItem
+from src.factories.clothing_factory import ClothingFactory
 
 from .api_service import APIService
 from src.base.utils import (
@@ -37,9 +36,10 @@ logging.getLogger("src.services.api_service").setLevel(logging.DEBUG)
 
 
 class AttributeGenerator:
-    def __init__(self, api_service: APIService, config: Dict):
+    def __init__(self, api_service: APIService, config: Dict, available_types: List[str]):
         self.api_service = api_service
         self.config = config
+        self.available_types = available_types  # Store available types
         # Resolve prompts directory relative to project root
         self.prompts_dir = Path(__file__).parent.parent.parent / config.get("prompts", {}).get("dir", "config/prompts")
         self._enum_mappings = {}
@@ -69,7 +69,10 @@ class AttributeGenerator:
                 logger.warning("Cohere config may not support embed operations")
         
         # Register enums from configuration
+        logger.info("Starting enum registration")
+        logger.info(f"Initial config: {self.config.get('attributes', {}).keys()}")
         self._register_enums_from_config()
+        logger.info(f"Registered enums: {list(self._enum_mappings.keys())}")
         
         # Only log model info if api_service is provided
         if api_service is not None:
@@ -84,19 +87,22 @@ class AttributeGenerator:
         try:
             # Get base attributes that apply to all products
             base_attributes = self.config.get('attributes', {})
+            logger.info(f"Base attributes: {list(base_attributes.keys())}")
             self._register_attributes_enums(base_attributes, 'base')
             
             # Load and register product-specific enums
             config_dir = Path(__file__).parent.parent.parent / 'config'
+            logger.info(f"Scanning config directory: {config_dir}")
             for config_file in config_dir.glob('*_config.yaml'):
                 if config_file.stem == 'base_config':
                     continue
                     
                 product_type = config_file.stem.replace('_config', '')
+                logger.info(f"Loading config for {product_type}")
                 product_config = ConfigManager.get_product_config(product_type)
                 
                 if product_config and 'attributes' in product_config:
-                    logger.debug(f"Registering enums for {product_type}")
+                    logger.info(f"Found attributes for {product_type}: {list(product_config['attributes'].keys())}")
                     self._register_attributes_enums(
                         product_config['attributes'],
                         product_type
@@ -112,26 +118,29 @@ class AttributeGenerator:
         source: str
     ) -> None:
         """Register enums for a set of attributes."""
+        logger.info(f"Registering enums for source: {source}")
         for field_name, field_config in attributes.items():
             if not isinstance(field_config, dict):
                 continue
                 
-            # Check if this is an enum field
-            if field_config.get('type') == 'enum':
-                self._register_enum_for_field(
-                    field_name,
-                    field_config.get('values'),
-                    source
-                )
+            # Check if this is an enum field (either direct or in a list)
+            is_enum_field = (
+                field_config.get('item_type') == 'enum' or 
+                (field_config.get('data_type') == 'list' and field_config.get('item_type') == 'enum')
+            )
             
-            # Check for list fields with enum items
-            elif (field_config.get('type') == 'list' and 
-                  field_config.get('item_type') == 'enum'):
-                self._register_enum_for_field(
-                    field_name,
-                    field_config.get('values'),
-                    source
-                )
+            if is_enum_field:
+                # For both cases, we need to get the enum class name from allowed_values
+                enum_name = field_config.get('allowed_values')
+                if enum_name:
+                    logger.info(f"Found enum field: {field_name} -> {enum_name}")
+                    self._register_enum_for_field(
+                        field_name,
+                        enum_name,
+                        source
+                    )
+                else:
+                    logger.error(f"No allowed_values specified for enum field {field_name}")
 
     def _register_enum_for_field(
         self, 
@@ -145,11 +154,13 @@ class AttributeGenerator:
             try:
                 enum_module = import_module('src.base.enums')
                 enum_class = getattr(enum_module, enum_name)
+                logger.info(f"Found enum {enum_name} in base.enums")
             except (ImportError, AttributeError):
                 # If not in base.enums, try product-specific enums
                 try:
                     enum_module = import_module(f'src.models.{source}.enums')
                     enum_class = getattr(enum_module, enum_name)
+                    logger.info(f"Found enum {enum_name} in {source}.enums")
                 except (ImportError, AttributeError):
                     logger.error(
                         f"Could not find enum class {enum_name} "
@@ -159,8 +170,8 @@ class AttributeGenerator:
             
             if issubclass(enum_class, Enum):
                 self._enum_mappings[field_name] = enum_class
-                logger.debug(
-                    f"Registered enum {enum_name} for field {field_name} "
+                logger.info(
+                    f"Successfully registered enum {enum_name} for field {field_name} "
                     f"from {source}"
                 )
             else:
@@ -174,8 +185,8 @@ class AttributeGenerator:
                 f"Error registering enum {enum_name} for field {field_name}: {str(e)}"
             )
 
-    def _load_prompt(self, product_type: str) -> str:
-        """Load and populate prompt with dynamic enum values."""
+    def _load_prompt(self, product_type: str, product_data: Dict[str, Any]) -> str:
+        """Load and populate prompt with dynamic enum values and product data."""
         try:
             # Convert to lowercase and append _prompt suffix
             prompt_filename = f"{product_type.lower()}_prompt"
@@ -196,6 +207,10 @@ class AttributeGenerator:
                     prompt = prompt.replace(f"{{', '.join({name}.__members__.keys())}}", enum_values)
                     prompt = prompt.replace(f"{{{name}}}", enum_values)
 
+            # Replace product data placeholders
+            product_description = product_data.get('description', 'No description available')
+            prompt = prompt.replace("{product_description}", product_description)
+
             return prompt
             
         except FileNotFoundError:
@@ -205,7 +220,24 @@ class AttributeGenerator:
             logger.error(f"Error loading prompt: {str(e)}\n{traceback.format_exc()}")
             return ""
 
+    # def _format_product_details(self, product_data: Dict[str, Any]) -> str:
+    #     return json.dumps(product_data, indent=2)
+
+
     def _format_product_details(self, product_data: Dict[str, Any]) -> str:
+        """Format product details including brand description for the prompt."""
+        product_data = {
+            "brand_name": product_data.get("brand_name"),
+            "product_id": product_data.get("product_id"),
+            "product_type": product_data.get("product_type"), 
+            "title": product_data.get("title"),
+            "description": product_data.get("description"),
+            "product_image_link": product_data.get("product_image_link"),
+            "price": product_data.get("price"),
+            "size": product_data.get("size"),
+            "tags": product_data.get("tags"),
+            "product_url": product_data.get("product_url")
+        }
         return json.dumps(product_data, indent=2)
 
     def _process_attributes(
@@ -213,15 +245,7 @@ class AttributeGenerator:
         data: Dict[str, Any],
         product_type: str
     ) -> Dict[str, Any]:
-        """Process and validate attributes from raw data.
-        
-        Args:
-            data: Raw attribute data from LLM
-            product_type: Type of product (e.g., 'saree', 'blouse')
-            
-        Returns:
-            Dict of validated attributes
-        """
+        """Process and validate attributes from raw data."""
         result = {}
         
         # Get product config and its attributes
@@ -229,54 +253,75 @@ class AttributeGenerator:
         defined_attributes = product_config.get('attributes', {})
         required_attrs = ConfigManager.get_required_attributes(product_type)
         
+        logger.info(f"Processing attributes for {product_type}")
+        
         # First, add all fields from the data to the result
-        # This ensures we don't lose any data generated by the LLM
         for field, value in data.items():
             result[field] = value
         
-        # Then process and validate fields defined in the config
+        # Then process and validate enum fields from LLM output
         for field, value in data.items():
-            # Skip fields that aren't defined in the product config but keep them in result
             if field not in defined_attributes:
-                logger.debug(f"Skipping undefined field '{field}' for {product_type}")
                 continue
-                
-            if field in self._enum_mappings:
+            
+            field_config = defined_attributes[field]
+            
+            # Only validate if this is an enum field
+            is_enum_field = (
+                field_config.get('item_type') == 'enum' or 
+                (field_config.get('data_type') == 'list' and field_config.get('item_type') == 'enum')
+            )
+            
+            if is_enum_field and field in self._enum_mappings:
                 enum_class = self._enum_mappings[field]
-                # Get threshold from attribute config, default to 0.8 if not specified
-                threshold = defined_attributes[field].get('threshold', 0.8)
+                threshold = field_config.get('threshold', 0.8)
+                
+                logger.info(f"Validating enum field '{field}' with threshold {threshold}")
                 
                 try:
                     if isinstance(value, list):
+                        logger.info(f"Original list values for '{field}': {value}")
                         result[field] = validate_enum_list(
                             value, 
                             enum_class, 
                             field,
                             threshold=threshold
                         )
+                        # Log each value's match score
+                        for orig_val, matched_val in zip(value, result[field]):
+                            if matched_val:  # Only log successful matches
+                                logger.info(
+                                    f"Enum match for '{field}': "
+                                    f"'{orig_val}' -> '{matched_val.value}' "
+                                    f"(score: {matched_val._match_score:.2f})"
+                                )
                     else:
+                        logger.info(f"Original value for '{field}': {value}")
                         result[field] = validate_enum_field(
                             value, 
                             enum_class, 
                             field,
                             threshold=threshold
                         )
+                        if result[field]:  # Only log successful matches
+                            logger.info(
+                                f"Enum match for '{field}': "
+                                f"'{value}' -> '{result[field].value}' "
+                                f"(score: {result[field]._match_score:.2f})"
+                            )
                 except Exception as e:
-                    logger.error(f"Error validating field {field}: {str(e)}")
+                    logger.error(f"Error validating enum field '{field}': {str(e)}")
                     if field in required_attrs:
-                        logger.error(f"Failed to validate required field {field}")
-                        # Don't return None, keep processing other fields
-                        # Just log the error and continue
-            
-        # Check for missing required attributes and try to set defaults
+                        logger.error(f"Failed to validate required enum field '{field}'")
+        
+        # Add non-LLM attributes with defaults from config
         for field in required_attrs:
-            if field not in result or result[field] is None or (isinstance(result[field], list) and not result[field]):
-                # Try to get default from config
+            if field not in result or result[field] is None or (
+                isinstance(result[field], list) and not result[field]
+            ):
                 if field in defined_attributes and 'default' in defined_attributes[field]:
                     result[field] = defined_attributes[field]['default']
-                    logger.debug(f"Set default value for required field {field}")
-                else:
-                    logger.warning(f"Missing required field {field} with no default")
+                    logger.info(f"Set default value for '{field}': {result[field]}")
         
         return result
 
@@ -287,156 +332,180 @@ class AttributeGenerator:
                 logger.error(f"Failed to convert image to data URL: {image_path}")
                 return None
             
-            logger.debug(f"Sending image to Cohere API: {image_path}")
-            
-            # CRITICAL FIX: Change input_type to "image" for image embeddings
             response = await self.api_service.call_cohere_api(
                 method="embed",
                 images=[data_url],
                 model=self.cohere_config.get("model"),
-                input_type="image",  # Changed from "search_document" to "image"
+                input_type="image",
                 embedding_types=["float"]
             )
             
-            # Add extensive logging to understand response structure
-            logger.debug(f"Image embedding response type: {type(response)}")
-            
-            # Dump full response structure for debugging
-            if hasattr(response, '__dict__'):
-                logger.debug(f"Response attributes: {dir(response)}")
-                if hasattr(response, 'embeddings'):
-                    logger.debug(f"Embeddings attributes: {dir(response.embeddings)}")
-                
-            # Try different ways to access embeddings based on Cohere docs
             if hasattr(response, 'embeddings'):
                 embeddings = response.embeddings
                 
-                # Try float_ (with underscore) as shown in some Cohere examples
-                if hasattr(embeddings, 'float_') and isinstance(embeddings.float_, list) and len(embeddings.float_) > 0:
-                    logger.debug(f"Found float_ embeddings of length {len(embeddings.float_)}")
+                # Try different response formats
+                if hasattr(embeddings, 'float_') and isinstance(embeddings.float_, list):
                     return embeddings.float_[0]
-                
-                # Try float (without underscore)
-                if hasattr(embeddings, 'float') and isinstance(embeddings.float, list) and len(embeddings.float) > 0:
-                    logger.debug(f"Found float embeddings of length {len(embeddings.float)}")
+                    
+                if hasattr(embeddings, 'float') and isinstance(embeddings.float, list):
                     return embeddings.float[0]
-                
-                # Check for list structure
-                if isinstance(embeddings, list) and len(embeddings) > 0:
-                    logger.debug(f"Found list-type embeddings of length {len(embeddings)}")
+                    
+                if isinstance(embeddings, list):
                     return embeddings[0]
-                
-                # Try to access as a dictionary
-                if isinstance(embeddings, dict) and 'float' in embeddings and len(embeddings['float']) > 0:
-                    logger.debug(f"Found dictionary float embeddings of length {len(embeddings['float'])}")
-                    return embeddings['float'][0]
-                
-                if isinstance(embeddings, dict) and 'float_' in embeddings and len(embeddings['float_']) > 0:
-                    logger.debug(f"Found dictionary float_ embeddings of length {len(embeddings['float_'])}")
-                    return embeddings['float_'][0]
+                    
+                if isinstance(embeddings, dict):
+                    if 'float_' in embeddings and isinstance(embeddings['float_'], list):
+                        return embeddings['float_'][0]
+                    if 'float' in embeddings and isinstance(embeddings['float'], list):
+                        return embeddings['float'][0]
             
-            # Direct attribute access in case of different structure
-            if hasattr(response, 'float') and isinstance(response.float, list) and len(response.float) > 0:
-                logger.debug(f"Found top-level float embeddings of length {len(response.float)}")
+            # Direct attribute access
+            if hasattr(response, 'float') and isinstance(response.float, list):
                 return response.float[0]
             
-            # Last resort - try to parse as dictionary
+            # Dictionary format
             if isinstance(response, dict):
                 if 'embeddings' in response:
                     emb = response['embeddings']
                     if isinstance(emb, dict):
-                        if 'float_' in emb and isinstance(emb['float_'], list) and len(emb['float_']) > 0:
-                            logger.debug(f"Found dictionary path embeddings['float_'] of length {len(emb['float_'])}")
+                        if 'float_' in emb and isinstance(emb['float_'], list):
                             return emb['float_'][0]
-                        if 'float' in emb and isinstance(emb['float'], list) and len(emb['float']) > 0:
-                            logger.debug(f"Found dictionary path embeddings['float'] of length {len(emb['float'])}")
+                        if 'float' in emb and isinstance(emb['float'], list):
                             return emb['float'][0]
             
-            # Log detailed response for debugging
-            logger.error(f"Could not extract embeddings from response: {response}")
+            logger.error("Could not extract embeddings from response")
             return None
-        
+            
         except Exception as e:
-            logger.exception(f"Error generating image embedding: {str(e)}")
+            logger.error(f"Error generating image embedding: {str(e)}")
             return None
 
-    async def _generate_text_embedding(
-        self,
-        text: str
-    ) -> Optional[List[float]]:
+    async def _generate_text_embedding(self, text: str) -> Optional[List[float]]:
         try:
-            # Call Cohere API for text embedding
-            logger.debug(f"Generating text embedding for text of length: {len(text)}")
-            
-            # Use correct input_type for text
             response = await self.api_service.call_cohere_api(
                 method="embed",
                 texts=[text],
                 model=self.cohere_config.get("model"),
-                input_type="search_document",  # This is correct for text
+                input_type="search_document",
                 embedding_types=["float"]
             )
             
-            # Add extensive logging to understand response structure
-            logger.debug(f"Text embedding response type: {type(response)}")
-            
-            # Dump full response structure for debugging
-            if hasattr(response, '__dict__'):
-                logger.debug(f"Response attributes: {dir(response)}")
-                if hasattr(response, 'embeddings'):
-                    logger.debug(f"Embeddings attributes: {dir(response.embeddings)}")
-            
-            # Try different ways to access embeddings based on Cohere docs
             if hasattr(response, 'embeddings'):
                 embeddings = response.embeddings
                 
-                # Try float_ (with underscore) as shown in some Cohere examples
-                if hasattr(embeddings, 'float_') and isinstance(embeddings.float_, list) and len(embeddings.float_) > 0:
-                    logger.debug(f"Found float_ embeddings of length {len(embeddings.float_)}")
+                # Try different response formats
+                if hasattr(embeddings, 'float_') and isinstance(embeddings.float_, list):
                     return embeddings.float_[0]
-                
-                # Try float (without underscore)
-                if hasattr(embeddings, 'float') and isinstance(embeddings.float, list) and len(embeddings.float) > 0:
-                    logger.debug(f"Found float embeddings of length {len(embeddings.float)}")
+                    
+                if hasattr(embeddings, 'float') and isinstance(embeddings.float, list):
                     return embeddings.float[0]
-                
-                # Check for list structure
-                if isinstance(embeddings, list) and len(embeddings) > 0:
-                    logger.debug(f"Found list-type embeddings of length {len(embeddings)}")
+                    
+                if isinstance(embeddings, list):
                     return embeddings[0]
-                
-                # Try to access as a dictionary
-                if isinstance(embeddings, dict) and 'float' in embeddings and len(embeddings['float']) > 0:
-                    logger.debug(f"Found dictionary float embeddings of length {len(embeddings['float'])}")
-                    return embeddings['float'][0]
-                
-                if isinstance(embeddings, dict) and 'float_' in embeddings and len(embeddings['float_']) > 0:
-                    logger.debug(f"Found dictionary float_ embeddings of length {len(embeddings['float_'])}")
-                    return embeddings['float_'][0]
+                    
+                if isinstance(embeddings, dict):
+                    if 'float_' in embeddings and isinstance(embeddings['float_'], list):
+                        return embeddings['float_'][0]
+                    if 'float' in embeddings and isinstance(embeddings['float'], list):
+                        return embeddings['float'][0]
             
-            # Direct attribute access in case of different structure
-            if hasattr(response, 'float') and isinstance(response.float, list) and len(response.float) > 0:
-                logger.debug(f"Found top-level float embeddings of length {len(response.float)}")
+            # Direct attribute access
+            if hasattr(response, 'float') and isinstance(response.float, list):
                 return response.float[0]
             
-            # Last resort - try to parse as dictionary
+            # Dictionary format
             if isinstance(response, dict):
                 if 'embeddings' in response:
                     emb = response['embeddings']
                     if isinstance(emb, dict):
-                        if 'float_' in emb and isinstance(emb['float_'], list) and len(emb['float_']) > 0:
-                            logger.debug(f"Found dictionary path embeddings['float_'] of length {len(emb['float_'])}")
+                        if 'float_' in emb and isinstance(emb['float_'], list):
                             return emb['float_'][0]
-                        if 'float' in emb and isinstance(emb['float'], list) and len(emb['float']) > 0:
-                            logger.debug(f"Found dictionary path embeddings['float'] of length {len(emb['float'])}")
+                        if 'float' in emb and isinstance(emb['float'], list):
                             return emb['float'][0]
             
-            # Log detailed response for debugging
-            logger.error(f"Could not extract embeddings from response: {response}")
+            logger.error("Could not extract embeddings from response")
             return None
+            
         except Exception as e:
-            logger.exception(f"Error generating text embedding: {str(e)}")
+            logger.error(f"Error generating text embedding: {str(e)}")
             return None
+
+    def _build_search_context(self, attributes: Dict[str, Any], product_type: str) -> str:
+        """Build search context string from product attributes based on configuration."""
+        try:
+            # Get product configuration
+            product_config = ConfigManager.get_product_config(product_type)
+            attributes_config = product_config.get('attributes', {})
+            
+            context_parts = []
+            
+            # Process attributes based on in_search_context flag
+            for attr_name, attr_config in attributes_config.items():
+                # Skip if attribute is not meant for search context
+                if not isinstance(attr_config, dict) or not attr_config.get('in_search_context', False):
+                    continue
+                
+                # Skip if attribute doesn't exist
+                if attr_name not in attributes:
+                    continue
+                
+                value = attributes[attr_name]
+                
+                # Skip empty values
+                if value is None or (isinstance(value, (list, dict)) and not value):
+                    continue
+                
+                # Format the attribute name for display
+                display_name = attr_name.replace('_', ' ').title()
+                
+                # Process different types of attributes
+                if isinstance(value, Enum):
+                    context_parts.append(f"{display_name}: {value.value}")
+                
+                elif isinstance(value, list):
+                    if all(isinstance(item, Enum) for item in value):
+                        items_str = ', '.join(item.value for item in value)
+                        if items_str:
+                            context_parts.append(f"{display_name}: {items_str}")
+                    elif all(isinstance(item, str) for item in value):
+                        items_str = ', '.join(item for item in value)
+                        if items_str:
+                            context_parts.append(f"{display_name}: {items_str}")
+                
+                elif isinstance(value, bool):
+                    if value:
+                        context_parts.append(f"{display_name}: Yes")
+                
+                elif isinstance(value, (str, int, float)):
+                    # Check for units in the attribute configuration
+                    if 'unit' in attr_config:
+                        context_parts.append(f"{display_name}: {value} {attr_config['unit']}")
+                    else:
+                        context_parts.append(f"{display_name}: {value}")
+                
+                elif isinstance(value, dict) and attr_name == 'coordinating_items':
+                    coord_parts = []
+                    for category, items in value.items():
+                        if items and isinstance(items, list):
+                            items_str = ', '.join(str(item) for item in items)
+                            if items_str:
+                                coord_parts.append(f"{category}: {items_str}")
+                    
+                    if coord_parts:
+                        coord_str = '; '.join(coord_parts)
+                        context_parts.append(f"Coordinating Items: {coord_str}")
+            
+            # Filter out empty strings and join with periods
+            context_parts = [p for p in context_parts if p and p.strip()]
+            search_context = '. '.join(context_parts).replace("  ", " ")
+            
+            logger.debug(f"Generated search context with {len(context_parts)} attributes")
+            return search_context
+            
+        except Exception as e:
+            logger.error(f"Error building search context: {str(e)}", exc_info=True)
+            # Fallback to a minimal context
+            return f"Title: {attributes.get('title', '')}. Description: {attributes.get('description', '')}"
 
     async def generate_attributes(
         self,
@@ -488,7 +557,7 @@ class AttributeGenerator:
             # Load product-specific prompt
             print(f"Loading prompt for product type: {product_type}")
             logger.debug(f"Loading prompt for product type: {product_type}")
-            prompt = self._load_prompt(product_type)
+            prompt = self._load_prompt(product_type, product_data)
             logger.debug(f"Prompt: {prompt}")
             if not prompt:
                 print(f"Failed to load prompt for product type: {product_type}")
@@ -567,9 +636,8 @@ class AttributeGenerator:
             logger.debug(f"Processing attributes for product {product_id}")
             try:
                 json_data = self._extract_json_response(content)
-                # Pass product_type to _process_attributes
                 attributes = self._process_attributes(json_data, product_type)
-                if not attributes:  # Check if we got any attributes
+                if not attributes:
                     logger.error(f"No valid attributes generated for {product_id}")
                     return None
                     
@@ -582,7 +650,7 @@ class AttributeGenerator:
                     attributes["input_tokens"] = response.usage.input_tokens
                     attributes["output_tokens"] = response.usage.output_tokens
                 
-                # Add embeddings
+                # Update attributes with product type information
                 attributes.update({
                     "brand": ConfigManager.get_product_config(product_type)['attributes']['brand']['default'],
                     "brand_title": product_data.get("title"),
@@ -590,15 +658,47 @@ class AttributeGenerator:
                     "size": product_data.get("size"),
                     "product_image_link": product_data.get("product_image_link"),
                     "product_url": product_data.get("product_url"),
-                    "text_embedding": text_embedding,
                     "image_embedding": image_embedding,
-                    "has_text_embedding": text_embedding is not None,
                     "has_image_embedding": image_embedding is not None,
-                    "product_type": product_type,
-                    # "search_context" : ClothingItem.build_search_context(attributes)
+                    # Keep original product type from brand
+                    "original_product_type": product_data.get("product_type", ""),
+                    # Use standardized category if available, otherwise use original
+                    "product_type": (
+                        product_data.get("standardized_category")
+                        if product_data.get("standardized_category") in self.available_types
+                        else product_data.get("product_type", "")
+                    ),
+                    # Always include standardized category for reference
+                    "standardized_category": product_data.get("standardized_category", "Uncategorized")
                 })
-                logger.debug(f"Search context: {attributes['search_context']}") 
-
+                
+                # Build search context directly in the attribute generator
+                logger.debug(f"Building search context for product {product_id}")
+                search_context = self._build_search_context(attributes, product_type)
+                attributes["search_context"] = search_context
+                
+                # Generate text embedding from search context
+                if search_context:
+                    logger.debug(f"Generating text embedding from search context for product {product_id}")
+                    text_embedding = await self._generate_text_embedding(search_context)
+                    attributes.update({
+                        "text_embedding": text_embedding,
+                        "has_text_embedding": text_embedding is not None
+                    })
+                else:
+                    logger.warning(f"No search context available for text embedding generation for product {product_id}")
+                    attributes.update({
+                        "text_embedding": None,
+                        "has_text_embedding": False
+                    })
+                
+                # Log the search context for debugging
+                if search_context:
+                    logger.debug(
+                        f"Search context for product {product_id} ({len(search_context)} chars): "
+                        f"{search_context[:100]}..." if len(search_context) > 100 else search_context
+                    )
+                
                 # Log what fields were generated vs required (for debugging)
                 required_attrs = ConfigManager.get_required_attributes(product_type)
                 generated_fields = set(attributes.keys())
@@ -617,6 +717,7 @@ class AttributeGenerator:
                 # Return the attributes without validation - validation will happen at save time
                 print(f"Successfully processed attributes for product {product_id}")
                 logger.debug(f"Successfully processed attributes for product {product_id}")
+                
                 return attributes
                 
             except json.JSONDecodeError as e:

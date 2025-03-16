@@ -1,5 +1,5 @@
-from typing import List, Any, Union, Dict, Type, get_type_hints
-from pydantic import field_validator, ValidationInfo, Field, create_model
+from typing import List, Any, Dict, Type
+from pydantic import field_validator, ValidationInfo, Field
 import logging
 from importlib import import_module
 from src.base import ClothingItem
@@ -9,14 +9,12 @@ from src.utils.config_loader import ConfigManager
 logger = logging.getLogger(__name__)
 
 
-class Blouse(ClothingItem):
-    # Load blouse-specific configuration
-    _config = ConfigManager.get_merged_config('blouse')
+class Dupatta(ClothingItem):
+    _config = ConfigManager.get_merged_config('dupatta')
     _attr_config = _config.get('attributes', {})
     
     @classmethod
     def _get_enum_class(cls, enum_name: str) -> Type:
-        """Dynamically import and return enum class from src.base."""
         try:
             return getattr(import_module('src.base'), enum_name)
         except (ImportError, AttributeError) as e:
@@ -25,7 +23,6 @@ class Blouse(ClothingItem):
 
     @classmethod
     def _get_field_config(cls) -> Dict[str, tuple[Type, Any, float]]:
-        """Dynamically generate field configurations from product config."""
         field_config = {}
         
         for field_name, config in cls._attr_config.items():
@@ -45,12 +42,10 @@ class Blouse(ClothingItem):
         return field_config
 
     def __init_subclass__(cls):
-        """Dynamically add fields based on configuration."""
         super().__init_subclass__()
         
-        # Add fields based on configuration
         for field_name, config in cls._attr_config.items():
-            field_type: Any = str  # Default type
+            field_type: Any = str
             field_default = None
             field_kwargs = {}
             
@@ -74,7 +69,14 @@ class Blouse(ClothingItem):
                 if 'max_length' in config:
                     field_kwargs['max_length'] = config['max_length']
             
-            # Add the field to the class
+            elif config.get('item_type') == 'list':
+                field_type = List[str]
+                field_default = []
+                if 'min_length' in config:
+                    field_kwargs['min_length'] = config['min_length']
+                if 'max_length' in config:
+                    field_kwargs['max_length'] = config['max_length']
+            
             if field_default is not None:
                 setattr(cls, field_name, Field(
                     default=field_default, **field_kwargs
@@ -111,37 +113,17 @@ class Blouse(ClothingItem):
         return v
 
     def validate_attributes(self) -> List[str]:
-        """Validate attribute combinations based on business rules."""
         errors = []
-        field_config = self._get_field_config()
         
-        # Get all enum fields and their values
-        enum_fields = {
-            field: getattr(self, field)
-            for field in field_config.keys()
-            if hasattr(self, field)
-        }
+        # Validate border design details length
+        border_details = getattr(self, 'border_design_details', [])
+        if not border_details:
+            errors.append("border_design_details is required")
+        elif not (3 <= len(border_details) <= 5):
+            errors.append(
+                "border_design_details must contain between 3 and 5 items"
+            )
         
-        # Validate sleeve type and neckline combination
-        if (enum_fields.get('sleeve_type') == 
-                self._get_enum_class('SleeveType').OFF_SHOULDER and 
-                enum_fields.get('neckline') != 
-                self._get_enum_class('Neckline').OFF_SHOULDER):
-            errors.append(
-                "Off-shoulder sleeve type requires off-shoulder neckline"
-            )
-            
-        # Validate closure based on fit
-        if (enum_fields.get('fit') in [
-                self._get_enum_class('Fit').FITTED,
-                self._get_enum_class('Fit').FORM_FITTING
-            ] and 
-                enum_fields.get('closure') == 
-                self._get_enum_class('Closure').PULL_ON):
-            errors.append(
-                "Fitted/form-fitting blouses should not use pull-on closure"
-            )
-            
         # Validate required string fields
         for field_name, config in self._attr_config.items():
             if (config.get('required', False) and 

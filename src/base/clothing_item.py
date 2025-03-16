@@ -110,17 +110,11 @@ class ClothingItem(BaseModel, ABC):
         }
     )
     
-    # Search context
-    search_context: str = Field(
-        default="",
-        description="Concatenated attributes for semantic search"
-    )
-    
     text_embedding: List[float] = Field(
         default_factory=list,
         description="Cohere embedding vector of search_context"
     )
-    
+
     @classmethod
     def get_category_mapping(cls) -> tuple[list[tuple[re.Pattern, str]], str]:
         """Load category standardization rules from config"""
@@ -330,120 +324,14 @@ class ClothingItem(BaseModel, ABC):
             threshold=cls._attr_config.get('pattern', {}).get('threshold', 0.6)
         )
 
-    def build_search_context(self) -> 'ClothingItem':
-        """
-        Build search context string from product attributes.
-        This method uses configuration to determine which attributes 
-        to include.
-        
-        Returns:
-            ClothingItem: Self reference with updated search_context
-        """
-        # Get the product type from the class name
-        product_type = self.__class__.__name__.lower()
-        
-        try:
-            # Load product configuration
-            product_config = ConfigManager.get_product_config(product_type)
-            attributes_config = product_config.get('attributes', {})
-            
-            context_parts = []
-            
-            # Process attributes based on in_search_context flag
-            for attr_name, attr_config in attributes_config.items():
-                # Skip if attribute is not meant for search context
-                if not isinstance(attr_config, dict) or not attr_config.get(
-                    'in_search_context', False
-                ):
-                    continue
-                
-                # Skip if attribute doesn't exist in the object
-                if not hasattr(self, attr_name):
-                    continue
-                
-                value = getattr(self, attr_name)
-                
-                # Skip empty values
-                if value is None or (
-                    isinstance(value, (list, dict)) and not value
-                ):
-                    continue
-                
-                # Format the attribute name for display
-                display_name = attr_name.replace('_', ' ').title()
-                
-                # Process different types of attributes
-                if isinstance(value, Enum):
-                    context_parts.append(f"{display_name}: {value.value}")
-                
-                elif isinstance(value, list):
-                    if all(isinstance(item, Enum) for item in value):
-                        items_str = ', '.join(item.value for item in value)
-                        if items_str:
-                            context_parts.append(
-                                f"{display_name}: {items_str}"
-                            )
-                    elif all(isinstance(item, str) for item in value):
-                        items_str = ', '.join(item for item in value)
-                        if items_str:
-                            context_parts.append(
-                                f"{display_name}: {items_str}"
-                            )
-                
-                elif isinstance(value, bool):
-                    if value:
-                        context_parts.append(f"{display_name}: Yes")
-                
-                elif isinstance(value, (str, int, float)):
-                    # Check for units in the attribute configuration
-                    if 'unit' in attr_config:
-                        context_parts.append(
-                            f"{display_name}: {value} {attr_config['unit']}"
-                        )
-                    # Fallback to hard-coded units for backward compatibility
-                    elif attr_name == 'length' and product_type == 'saree':
-                        context_parts.append(f"{display_name}: {value} meters")
-                    elif attr_name == 'length' and product_type == 'kurta':
-                        context_parts.append(f"{display_name}: {value} inches")
-                    elif attr_name == 'width':
-                        context_parts.append(f"{display_name}: {value} meters")
-                    elif attr_name == 'weight':
-                        context_parts.append(f"{display_name}: {value} grams")
-                    else:
-                        context_parts.append(f"{display_name}: {value}")
-                
-                elif isinstance(value, dict) and attr_name == 'coordinating_items':
-                    coord_parts = []
-                    for category, items in value.items():
-                        if items and isinstance(items, list):
-                            items_str = ', '.join(str(item) for item in items)
-                            if items_str:
-                                coord_parts.append(f"{category}: {items_str}")
-                    
-                    if coord_parts:
-                        coord_str = '; '.join(coord_parts)
-                        context_parts.append(
-                            f"Coordinating Items: {coord_str}"
-                        )
-            
-            # Filter out empty strings
-            context_parts = [p for p in context_parts if p and p.strip()]
-            
-            # Join with periods and clean up extra spaces
-            self.search_context = '. '.join(context_parts).replace("  ", " ")
-            
-        except Exception as e:
-            logger.error(
-                f"Error building search context for {product_type}: {str(e)}"
-            )
-            # Fallback to a minimal context
-            self.search_context = (
-                f"Title: {self.title}. Description: {self.description}"
-            )
-        
-        return self
-
-    @abstractmethod
     def validate_attributes(self) -> List[str]:
-        """Validate product-specific attributes"""
-        pass 
+        """Validate base attributes"""
+        errors = []
+        
+        # Validate required fields
+        required_attrs = self._attr_config.keys()
+        for attr in required_attrs:
+            if not hasattr(self, attr) or getattr(self, attr) is None:
+                errors.append(f"Missing required attribute: {attr}")
+                
+        return errors 

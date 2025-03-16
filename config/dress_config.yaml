@@ -1,11 +1,19 @@
 extends: base_config.yaml
 
 attributes:
-  sleeve_type:
+  dress_type:
     required: true
     data_type: string
     item_type: enum
-    allowed_values: SleeveType
+    allowed_values: DressType
+    threshold: 0.8
+    in_search_context: true
+
+  dress_silhouette:
+    required: true
+    data_type: string
+    item_type: enum
+    allowed_values: DressSilhouette
     threshold: 0.8
     in_search_context: true
 
@@ -13,10 +21,18 @@ attributes:
     required: true
     data_type: string
     item_type: enum
-    allowed_values: KurtaNeckline
+    allowed_values: Neckline
     threshold: 0.8
     in_search_context: true
 
+  sleeve_type:
+    required: true
+    data_type: string
+    item_type: enum
+    allowed_values: SleeveType
+    threshold: 0.8
+    in_search_context: true
+        
   closure:
     required: true
     data_type: string
@@ -24,45 +40,13 @@ attributes:
     allowed_values: Closure
     threshold: 0.8
     in_search_context: true
-
-  fit:
+    
+  back_design:
     required: true
     data_type: string
-    item_type: enum
-    allowed_values: KurtaFit
-    threshold: 0.8
+    item_type: string
     in_search_context: true
 
-  hemline:
-    required: true
-    data_type: string
-    item_type: enum
-    allowed_values: Hemline
-    threshold: 0.8
-    in_search_context: true
-
-  kurta_set:
-    required: true
-    data_type: string
-    item_type: enum
-    allowed_values: KurtaSet
-    threshold: 0.8
-    in_search_context: true
-
-  length:
-    required: true
-    data_type: string
-    item_type: enum
-    allowed_values: KurtaLength
-    threshold: 0.8
-    in_search_context: true
-
-  side_slits:
-    required: true
-    data_type: boolean
-    item_type: boolean
-    default: false
-    in_search_context: true
 
   styling_suggestions:
     required: true
@@ -72,3 +56,4 @@ attributes:
     in_search_context: false
   
 
+    

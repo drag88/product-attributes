@@ -118,46 +118,41 @@ def filter_products(
 ) -> pd.DataFrame:
     """
     Filter products based on standardized product categories.
-    
-    Args:
-        df: DataFrame containing products
-        available_types: List of available standardized product types
-        target_types: Optional list of target product types to filter for
-        
-    Returns:
-        Filtered DataFrame with standardized categories
     """
     # Standardize all product types
     df['standardized_category'] = df['product_type'].apply(
         lambda x: ProductStandardizer.standardize_product({'product_type': x})['standardized_category']
     )
     
-    # Standardize target types if provided
+    # If target types specified, filter for those first
     if target_types:
         target_standardized = [
             ProductStandardizer.standardize_product({'product_type': t})['standardized_category']
             for t in target_types
         ]
-        target_standardized = list(set(target_standardized))  # Remove duplicates
-    else:
-        target_standardized = None
-
-    # First filter by target types if specified
-    if target_standardized:
+        target_standardized = list(set(target_standardized))
         filtered_df = df[df['standardized_category'].isin(target_standardized)]
     else:
         filtered_df = df.copy()
 
-    # Then filter for available types
-    filtered_df = filtered_df[filtered_df['standardized_category'].isin(available_types)]
-
-    # Logging and reporting
-    if not filtered_df.empty:
-        # Get standardized type distribution
-        type_counts = filtered_df['standardized_category'].value_counts().to_dict()
-        print(f"Standardized category distribution: {type_counts}")
+    # Split into standard and non-standard products
+    standard_products = filtered_df[filtered_df['standardized_category'].isin(available_types)]
+    other_products = filtered_df[~filtered_df['standardized_category'].isin(available_types)]
+    
+    if not other_products.empty:
         logger.info(
-            "Standardized category distribution",
+            f"Found {len(other_products)} products with non-standard categories. "
+            "Will use base configuration for these."
+        )
+        
+    # Combine both dataframes, maintaining the separation via standardized_category
+    filtered_df = pd.concat([standard_products, other_products])
+    
+    # Log distribution
+    if not filtered_df.empty:
+        type_counts = filtered_df['standardized_category'].value_counts().to_dict()
+        logger.info(
+            "Category distribution",
             extra={"type_counts": type_counts}
         )
     
@@ -298,10 +293,11 @@ async def main():
                 print("Initializing API service")
                 api_service = APIService(config.get('api', {}))
                 
-                # Initialize attribute generator
+                # Initialize attribute generator with available types
                 attribute_generator = AttributeGenerator(
                     api_service=api_service,
-                    config=config
+                    config=config,
+                    available_types=available_types  # Pass available types here
                 )
                 
                 # Initialize batch processor
@@ -321,22 +317,31 @@ async def main():
             with LoggingContext(logger, "product processing"):
                 perf_metrics.checkpoint("processing_start")
                 print("Starting product processing")
+                
                 # Process each product type
                 unique_categories = df['standardized_category'].unique()
                 logger.info(f"Found product types in data: {unique_categories}")
                 
                 for category in unique_categories:
                     if args.product_types and category not in args.product_types:
-                        logger.info(f"Skipping {category} as it's not in requested types: {args.product_types}")
+                        logger.info(f"Skipping {category} as it's not in requested types")
                         continue
                     
+                    is_standard_category = category in available_types
                     logger.info(
                         f"Processing {category} products",
-                        extra={"current_product_type": category}
+                        extra={
+                            "current_product_type": category,
+                            "using_standard_config": is_standard_category
+                        }
                     )
                     
                     # Filter dataframe for current product type
                     type_df = df[df['standardized_category'] == category].copy()
+                    
+                    # Ensure standardized category is included in the data
+                    type_df['standardized_category'] = category
+                    
                     logger.info(f"Found {len(type_df)} products of type {category}")
                     
                     # Add image paths if available
@@ -350,27 +355,15 @@ async def main():
                             has_images = type_df['image_path'].notna().sum()
                             logger.info(f"{has_images} out of {len(type_df)} products have images")
                             type_df = type_df[type_df['image_path'].notna()]
-                        
-                        if type_df.empty:
-                            logger.warning(
-                                f"No {category} products found with valid images",
-                                extra={"product_type": category}
-                            )
-                            continue
-                            
-                        logger.info(
-                            f"Processing {len(type_df)} products with valid images",
-                            extra={
-                                "product_type": category,
-                                "product_count": len(type_df)
-                            }
-                        )
                     
+                    if type_df.empty:
+                        continue
+                        
                     # Process products in batches using the batch processor
                     logger.info(f"Starting batch processing for {category}")
                     results = await batch_processor.batch_process(
                         type_df,
-                        category,
+                        category if is_standard_category else 'base',
                         image_path_column='image_path' if 'image_path' in type_df.columns else None
                     )
                     

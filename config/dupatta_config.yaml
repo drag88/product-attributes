@@ -1,0 +1,36 @@
+extends: base_config.yaml
+
+attributes:
+  border_width:
+    required: true
+    data_type: string
+    item_type: enum
+    allowed_values: BorderWidth
+    threshold: 0.8
+    in_search_context: true
+  
+  border_design:
+    required: true
+    data_type: string
+    item_type: enum
+    allowed_values: BorderDesign
+    threshold: 0.8
+    in_search_context: true
+  
+  border_design_details:
+    required: true
+    data_type: list
+    item_type: string
+    min_length: 3
+    max_length: 5
+    in_search_context: true
+ 
+  styling_suggestions:
+    required: true
+    data_type: string
+    item_type: string
+    max_length: 3
+    in_search_context: false
+  
+
+    

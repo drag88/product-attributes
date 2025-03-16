@@ -75,46 +75,78 @@ def get_similarity_score(text1: str, text2: str) -> float:
     return (ratio * 0.3) + (partial_ratio * 0.7)
 
 
-def find_best_enum_match(
-    value: str,
-    enum_class: Type[Enum],
-    threshold: float = 0.6
-) -> Tuple[Optional[Enum], float]:
+# def find_best_enum_match(
+#     value: str,
+#     enum_class: Type[Enum],
+#     threshold: float = 0.8
+# ) -> Tuple[Optional[Enum], float]:
+#     normalized_value = normalize_text(value)
+#     enum_variations = build_enum_variations(enum_class)
+    
+#     # Check for direct match first
+#     if normalized_value in enum_variations:
+#         return enum_variations[normalized_value], 1.0
+    
+#     best_match = None
+#     best_score = 0.0
+    
+#     # Enhanced substring matching with boosted scores
+#     for variation, enum_member in enum_variations.items():
+#         if normalized_value in variation:
+#             # Boost score for contained matches
+#             score = min(0.8 + (len(normalized_value)/len(variation)) * 0.2, 1.0)
+#             if score > best_score:
+#                 best_score = score
+#                 best_match = enum_member
+#         elif variation in normalized_value:
+#             score = 0.7  # Base score for reverse containment
+#             if score > best_score:
+#                 best_score = score
+#                 best_match = enum_member
+    
+#     if best_score >= threshold:
+#         return best_match, best_score
+    
+#     # Proceed with fuzzy matching if no substring match
+#     for variation, enum_member in enum_variations.items():
+#         score = get_similarity_score(normalized_value, variation)
+#         if score > best_score:
+#             best_score = score
+#             best_match = enum_member
+    
+#     return (best_match, best_score) if best_score >= threshold else (None, 0.0)
+
+def find_best_enum_match(value: str, enum_class: Type[Enum], threshold: float = 0.8) -> Tuple[Optional[Enum], float]:
+    """Find the best matching enum value using multiple strategies."""
+    if not value:
+        return None, 0.0
+        
     normalized_value = normalize_text(value)
-    enum_variations = build_enum_variations(enum_class)
     
-    # Check for direct match first
-    if normalized_value in enum_variations:
-        return enum_variations[normalized_value], 1.0
+    # Try exact matches first
+    variations = build_enum_variations(enum_class)
+    if normalized_value in variations:
+        return variations[normalized_value], 1.0
     
-    best_match = None
+    # Try individual words for compound values
+    words = normalized_value.split()
+    if len(words) > 1:
+        for word in words:
+            if word in variations:
+                return variations[word], 0.9
+    
+    # Try fuzzy matching as last resort
     best_score = 0.0
+    best_match = None
     
-    # Enhanced substring matching with boosted scores
-    for variation, enum_member in enum_variations.items():
-        if normalized_value in variation:
-            # Boost score for contained matches
-            score = min(0.8 + (len(normalized_value)/len(variation)) * 0.2, 1.0)
-            if score > best_score:
-                best_score = score
-                best_match = enum_member
-        elif variation in normalized_value:
-            score = 0.7  # Base score for reverse containment
-            if score > best_score:
-                best_score = score
-                best_match = enum_member
-    
-    if best_score >= threshold:
-        return best_match, best_score
-    
-    # Proceed with fuzzy matching if no substring match
-    for variation, enum_member in enum_variations.items():
-        score = get_similarity_score(normalized_value, variation)
-        if score > best_score:
+    for enum_value in enum_class:
+        score = get_similarity_score(value, enum_value.value)
+        if score > best_score and score >= threshold:
             best_score = score
-            best_match = enum_member
-    
-    return (best_match, best_score) if best_score >= threshold else (None, 0.0)
+            best_match = enum_value
+            
+    return best_match, best_score
+
 
 
 def get_default_enum_value(enum_class: Type[Enum]) -> Enum:
@@ -159,7 +191,9 @@ def validate_enum_field(
     if isinstance(value, str):
         # Try exact match first
         try:
-            return enum_cls(value)
+            matched = enum_cls(value)
+            matched._match_score = 1.0  # Perfect match
+            return matched
         except ValueError:
             pass
             
@@ -170,6 +204,7 @@ def validate_enum_field(
                 f"Matched {field_name} '{value}' to '{best_match.value}' "
                 f"(score: {score})"
             )
+            best_match._match_score = score
             return best_match
             
         # If threshold not met, try compound word matching if allowed
@@ -182,6 +217,7 @@ def validate_enum_field(
                         f"Matched {field_name} word '{word}' to "
                         f"'{best_match.value}' (score: {score})"
                     )
+                    best_match._match_score = score
                     return best_match
     
     # If we get here, try a lower threshold as a fallback
@@ -193,13 +229,16 @@ def validate_enum_field(
                 f"Fallback match for {field_name} '{value}' to '{best_match.value}' "
                 f"(score: {score})"
             )
+            best_match._match_score = score
             return best_match
     
     logger.warning(
         f"No match for {field_name} '{value}' with threshold {threshold}, "
         "using default"
     )
-    return default if default is not None else get_default_enum_value(enum_cls)
+    default_value = default if default is not None else get_default_enum_value(enum_cls)
+    default_value._match_score = 0.0  # No match
+    return default_value
 
 
 def validate_enum_list(
@@ -238,9 +277,13 @@ def validate_enum_list(
             threshold=threshold  # Pass through threshold
         )
         if validated is not None:
+            # Ensure match score is preserved
+            if not hasattr(validated, '_match_score'):
+                validated._match_score = 0.0
             result.append(validated)
             
     # Only return default if result is empty and default is provided
     if not result and default:
+        default._match_score = 0.0  # No match for default value
         return [default]
     return result 

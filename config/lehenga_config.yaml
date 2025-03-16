@@ -1,11 +1,11 @@
 extends: base_config.yaml
 
 attributes:
-  sleeve_type:
+  lehenga_type:
     required: true
     data_type: string
     item_type: enum
-    allowed_values: SleeveType
+    allowed_values: LehengaType
     threshold: 0.8
     in_search_context: true
 
@@ -13,10 +13,26 @@ attributes:
     required: true
     data_type: string
     item_type: enum
-    allowed_values: KurtaNeckline
+    allowed_values: Neckline
+    threshold: 0.8
+    in_search_context: true
+    
+  skirt_style:
+    required: true
+    data_type: string
+    item_type: enum
+    allowed_values: LehengaSkirtStyle
     threshold: 0.8
     in_search_context: true
 
+  sleeve_type:
+    required: true
+    data_type: string
+    item_type: enum
+    allowed_values: SleeveType
+    threshold: 0.8
+    in_search_context: true
+        
   closure:
     required: true
     data_type: string
@@ -24,45 +40,44 @@ attributes:
     allowed_values: Closure
     threshold: 0.8
     in_search_context: true
-
-  fit:
+    
+  blouse_design:
     required: true
     data_type: string
     item_type: enum
-    allowed_values: KurtaFit
+    allowed_values: LehengaBlouseDesign
     threshold: 0.8
     in_search_context: true
 
-  hemline:
+  back_design:
+    required: true
+    data_type: string
+    item_type: string
+    in_search_context: true
+
+  dupatta_style:
     required: true
     data_type: string
     item_type: enum
-    allowed_values: Hemline
+    allowed_values: LehengaDupattaStyle
     threshold: 0.8
     in_search_context: true
 
-  kurta_set:
+  blouse_included:
     required: true
     data_type: string
     item_type: enum
-    allowed_values: KurtaSet
+    allowed_values: Included
     threshold: 0.8
-    in_search_context: true
+    in_search_context: false
 
-  length:
+  dupatta_included:
     required: true
     data_type: string
     item_type: enum
-    allowed_values: KurtaLength
+    allowed_values: Included
     threshold: 0.8
-    in_search_context: true
-
-  side_slits:
-    required: true
-    data_type: boolean
-    item_type: boolean
-    default: false
-    in_search_context: true
+    in_search_context: false
 
   styling_suggestions:
     required: true
@@ -72,3 +87,4 @@ attributes:
     in_search_context: false
   
 
+    

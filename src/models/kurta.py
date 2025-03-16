@@ -1,230 +1,171 @@
-from typing import List, Optional, Any
-from pydantic import Field, field_validator
+from typing import List, Optional, Any, Dict, Type
+from pydantic import Field, field_validator, ValidationInfo
 import logging
-
+from importlib import import_module
 from src.base import (
     ClothingItem, Closure, Fit, Neckline,
     Hemline, SleeveType, KurtaSet, Material
 )
-from src.utils.validation import find_best_enum_match
+from src.utils.validation import find_best_enum_match, validate_enum_field
+from src.utils.config_loader import ConfigManager
 
 logger = logging.getLogger(__name__)
 
 
 class Kurta(ClothingItem):
-    # Design attributes
-    sleeve_type: SleeveType
-    neckline: Neckline
-    closure: Closure
-    fit: Fit
-    hemline: Hemline
-    kurta_set: KurtaSet
+    # Load kurta-specific configuration
+    _config = ConfigManager.get_merged_config('kurta')
+    _attr_config = _config.get('attributes', {})
     
-    # Physical attributes
-    length: float = Field(..., gt=0)
-    side_slits: bool = False
-    
-    # Optional bottom wear details
-    bottom_material: Optional[Material] = None
-    dupatta_material: Optional[Material] = None
-    
-    @field_validator('sleeve_type', mode='before')
     @classmethod
-    def validate_sleeve_type(cls, v: Any) -> SleeveType:
-        if isinstance(v, SleeveType):
-            return v
-        
-        if not v:
-            return SleeveType.OTHERS
-            
-        if isinstance(v, str):
-            try:
-                return SleeveType(v)
-            except ValueError:
-                pass
-                
-            best_match, score = find_best_enum_match(v, SleeveType)
-            if best_match and score >= 0.8:
-                msg = (
-                    f"Fuzzy matched sleeve_type '{v}' to "
-                    f"'{best_match.value}' with score {score}"
-                )
-                logger.info(msg)
-                return SleeveType(best_match.value)
-        
-        logger.warning(
-            f"Could not match sleeve_type '{v}', defaulting to 'Others'"
-        )
-        return SleeveType.OTHERS
-    
-    @field_validator('neckline', mode='before')
+    def _get_enum_class(cls, enum_name: str) -> Type:
+        """Dynamically import and return enum class from src.base."""
+        try:
+            return getattr(import_module('src.base'), enum_name)
+        except (ImportError, AttributeError) as e:
+            logger.error(f"Failed to import enum {enum_name}: {e}")
+            raise ValueError(f"Invalid enum class: {enum_name}")
+
     @classmethod
-    def validate_neckline(cls, v: Any) -> Neckline:
-        if isinstance(v, Neckline):
-            return v
+    def _get_field_config(cls) -> Dict[str, tuple[Type, Any, float]]:
+        """Dynamically generate field configurations from product config."""
+        field_config = {}
         
-        if not v:
-            return Neckline.OTHERS
+        for field_name, config in cls._attr_config.items():
+            if config.get('item_type') == 'enum':
+                enum_class_name = config.get('allowed_values')
+                if enum_class_name:
+                    try:
+                        enum_cls = cls._get_enum_class(enum_class_name)
+                        field_config[field_name] = (
+                            enum_cls,
+                            getattr(enum_cls, 'OTHERS', None),
+                            config.get('threshold', 0.8)
+                        )
+                    except ValueError:
+                        continue
+        
+        return field_config
+
+    def __init_subclass__(cls):
+        """Dynamically add fields based on configuration."""
+        super().__init_subclass__()
+        
+        # Add fields based on configuration
+        for field_name, config in cls._attr_config.items():
+            field_type: Any = str  # Default type
+            field_default = None
+            field_kwargs = {}
             
-        if isinstance(v, str):
-            try:
-                return Neckline(v)
-            except ValueError:
-                pass
-                
-            best_match, score = find_best_enum_match(v, Neckline)
-            if best_match and score >= 0.8:
-                msg = (
-                    f"Fuzzy matched neckline '{v}' to "
-                    f"'{best_match.value}' with score {score}"
-                )
-                logger.info(msg)
-                return Neckline(best_match.value)
-        
-        logger.warning(
-            f"Could not match neckline '{v}', defaulting to 'Others'"
-        )
-        return Neckline.OTHERS
-    
-    @field_validator('closure', mode='before')
+            if config.get('item_type') == 'enum':
+                try:
+                    field_type = cls._get_enum_class(config['allowed_values'])
+                    if config.get('default'):
+                        field_default = getattr(field_type, config['default'])
+                except ValueError:
+                    continue
+            
+            elif config.get('item_type') == 'boolean':
+                field_type = bool
+                field_default = config.get('default', False)
+            
+            elif config.get('item_type') == 'string':
+                field_type = str
+                field_default = config.get('default', '')
+                if 'min_length' in config:
+                    field_kwargs['min_length'] = config['min_length']
+                if 'max_length' in config:
+                    field_kwargs['max_length'] = config['max_length']
+            
+            elif config.get('item_type') == 'float':
+                field_type = float
+                field_default = config.get('default')
+                if 'min' in config:
+                    field_kwargs['gt'] = config['min']
+                if 'max' in config:
+                    field_kwargs['lt'] = config['max']
+            
+            # Add the field to the class
+            if field_default is not None:
+                setattr(cls, field_name, Field(
+                    default=field_default, **field_kwargs
+                ))
+            else:
+                setattr(cls, field_name, field_type)
+
+    @field_validator('*', mode='before')
     @classmethod
-    def validate_closure(cls, v: Any) -> Closure:
-        if isinstance(v, Closure):
+    def validate_fields(
+        cls, v: Any, info: ValidationInfo
+    ) -> Any:
+        field_name = info.field_name
+        if not field_name:
             return v
-        
-        if not v:
-            return Closure.OTHERS
             
-        if isinstance(v, str):
-            try:
-                return Closure(v)
-            except ValueError:
-                pass
-                
-            best_match, score = find_best_enum_match(v, Closure)
-            if best_match and score >= 0.8:
-                msg = (
-                    f"Fuzzy matched closure '{v}' to "
-                    f"'{best_match.value}' with score {score}"
-                )
-                logger.info(msg)
-                return Closure(best_match.value)
-        
-        logger.warning(
-            f"Could not match closure '{v}', defaulting to 'Others'"
-        )
-        return Closure.OTHERS
-    
-    @field_validator('fit', mode='before')
-    @classmethod
-    def validate_fit(cls, v: Any) -> Fit:
-        if isinstance(v, Fit):
-            return v
-        
-        if not v:
-            return Fit.OTHERS
+        field_config = cls._get_field_config()
+        if field_name in field_config:
+            config = field_config[field_name]
+            enum_cls = config[0]
+            default = config[1]
+            threshold = config[2]
             
-        if isinstance(v, str):
-            try:
-                return Fit(v)
-            except ValueError:
-                pass
-                
-            best_match, score = find_best_enum_match(v, Fit)
-            if best_match and score >= 0.8:
-                msg = (
-                    f"Fuzzy matched fit '{v}' to "
-                    f"'{best_match.value}' with score {score}"
-                )
-                logger.info(msg)
-                return Fit(best_match.value)
-        
-        logger.warning(
-            f"Could not match fit '{v}', defaulting to 'Others'"
-        )
-        return Fit.OTHERS
-    
-    @field_validator('hemline', mode='before')
-    @classmethod
-    def validate_hemline(cls, v: Any) -> Hemline:
-        if isinstance(v, Hemline):
-            return v
-        
-        if not v:
-            return Hemline.OTHERS
+            result = validate_enum_field(
+                v,
+                enum_cls,
+                field_name,
+                default=default,
+                threshold=threshold
+            )
             
-        if isinstance(v, str):
-            try:
-                return Hemline(v)
-            except ValueError:
-                pass
-                
-            best_match, score = find_best_enum_match(v, Hemline)
-            if best_match and score >= 0.8:
-                msg = (
-                    f"Fuzzy matched hemline '{v}' to "
-                    f"'{best_match.value}' with score {score}"
-                )
-                logger.info(msg)
-                return Hemline(best_match.value)
-        
-        logger.warning(
-            f"Could not match hemline '{v}', defaulting to 'Others'"
-        )
-        return Hemline.OTHERS
-    
-    @field_validator('kurta_set', mode='before')
-    @classmethod
-    def validate_kurta_set(cls, v: Any) -> KurtaSet:
-        if isinstance(v, KurtaSet):
-            return v
-        
-        if not v:
-            return KurtaSet.OTHERS
+            return enum_cls(str(result.value))
             
-        if isinstance(v, str):
-            try:
-                return KurtaSet(v)
-            except ValueError:
-                pass
-                
-            best_match, score = find_best_enum_match(v, KurtaSet)
-            if best_match and score >= 0.8:
-                msg = (
-                    f"Fuzzy matched kurta_set '{v}' to "
-                    f"'{best_match.value}' with score {score}"
-                )
-                logger.info(msg)
-                return KurtaSet(best_match.value)
-        
-        logger.warning(
-            f"Could not match kurta_set '{v}', defaulting to 'Others'"
-        )
-        return KurtaSet.OTHERS
-    
+        return v
+
     def validate_attributes(self) -> List[str]:
+        """Validate attribute combinations based on business rules."""
         errors = []
+        field_config = self._get_field_config()
+        
+        # Get all enum fields and their values
+        enum_fields = {
+            field: getattr(self, field)
+            for field in field_config.keys()
+            if hasattr(self, field)
+        }
         
         # Validate physical measurements
-        if self.length < 24:
+        length = getattr(self, 'length', None)
+        if length is not None and length < 24:
             errors.append("Kurta length should be at least 24 inches")
             
+        # Get KurtaSet enum class
+        kurta_set_cls = self._get_enum_class('KurtaSet')
+        kurta_set = enum_fields.get('kurta_set')
+        
         # Validate bottom material if kurta set includes bottom
         bottom_sets = [
-            KurtaSet.KURTA_PANT, KurtaSet.KURTA_PAJAMA,
-            KurtaSet.KURTA_DHOTI, KurtaSet.KURTA_SALWAR
+            kurta_set_cls.KURTA_WITH_PANTS,
+            kurta_set_cls.KURTA_WITH_PALAZZO,
+            kurta_set_cls.COMPLETE_SET
         ]
-        if self.kurta_set in bottom_sets and not self.bottom_material:
+        if kurta_set in bottom_sets and not getattr(self, 'bottom_material', None):
             msg = "Bottom material must be specified for kurta sets with bottoms"
             errors.append(msg)
             
         # Validate dupatta material if kurta set includes dupatta
         dupatta_sets = [
-            KurtaSet.KURTA_DUPATTA, KurtaSet.KURTA_PANT_DUPATTA,
-            KurtaSet.KURTA_PAJAMA_DUPATTA, KurtaSet.KURTA_SALWAR_DUPATTA
+            kurta_set_cls.KURTA_WITH_DUPATTA,
+            kurta_set_cls.COMPLETE_SET
         ]
-        if self.kurta_set in dupatta_sets and not self.dupatta_material:
+        if kurta_set in dupatta_sets and not getattr(self, 'dupatta_material', None):
             msg = "Dupatta material must be specified for kurta sets with dupatta"
             errors.append(msg)
+            
+        # Validate required string fields
+        for field_name, config in self._attr_config.items():
+            if (config.get('required', False) and 
+                    config.get('item_type') == 'string' and
+                    not getattr(self, field_name, None)):
+                errors.append(f"{field_name} is required")
             
         return errors 

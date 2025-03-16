@@ -97,12 +97,15 @@ class ClothingFactory:
     @classmethod
     def create(cls, product_type: str, data: Dict[str, Any]) -> Optional[ClothingItem]:
         """Create a clothing item of the specified type."""
-        if product_type not in cls._registry:
-            logger.error(f"Unknown product type: {product_type}")
-            return None
-        
         try:
-            product_class = cls._registry[product_type]
+            if product_type in cls._registry:
+                # Use specific product class if available
+                product_class = cls._registry[product_type]
+            else:
+                # Fallback to base ClothingItem for undefined types
+                logger.warning(f"Using base ClothingItem for undefined type: {product_type}")
+                product_class = ClothingItem
+            
             return product_class(**data)
         except Exception as e:
             logger.error(f"Error creating {product_type}: {str(e)}")

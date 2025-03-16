@@ -2,7 +2,16 @@ from enum import Enum
 from typing import Set
 
 
-class Color(str, Enum):
+class BaseEnum(str, Enum):
+    """Base enum class that supports match scores."""
+    def __new__(cls, *args, **kwargs):
+        obj = str.__new__(cls, args[0])
+        obj._value_ = args[0]
+        obj._match_score = 0.0  # Initialize match score
+        return obj
+
+
+class Color(BaseEnum):
     BLACK = "Black"
     WHITE = "White"
     BROWN = "Brown"
@@ -30,7 +39,7 @@ class Color(str, Enum):
         return {item.value for item in cls}
 
 
-class ColorDetailed(str, Enum):
+class ColorDetailed(BaseEnum):
     # Black/White/Gray Scale
     PURE_BLACK = "Pure Black"
     SOFT_BLACK = "Soft Black"
@@ -44,6 +53,7 @@ class ColorDetailed(str, Enum):
     LIGHT_GRAY = "Light Gray"
     WHITE_SMOKE = "White Smoke"
     PURE_WHITE = "Pure White"
+    CREAM_WHITE = "Cream White"
 
     # Reds/Burgundies/Wines
     CLASSIC_RED = "Classic Red"
@@ -130,7 +140,7 @@ class ColorDetailed(str, Enum):
         return {item.value for item in cls}
 
 
-class Pattern(str, Enum):
+class Pattern(BaseEnum):
     ABSTRACT = "Abstract"
     ANIMAL = "Animal"
     BANDHANI = "Bandhani"
@@ -167,7 +177,7 @@ class Pattern(str, Enum):
         return {item.value for item in cls}
 
 
-class Material(str, Enum):
+class Material(BaseEnum):
     SILK = "Silk"
     COTTON = "Cotton"
     CHIFFON = "Chiffon"
@@ -186,7 +196,7 @@ class Material(str, Enum):
         return {item.value for item in cls}
 
 
-class EmbellishmentLevel(str, Enum):
+class EmbellishmentLevel(BaseEnum):
     NONE = "None"
     LIGHT = "Light"
     MEDIUM = "Medium"
@@ -197,7 +207,7 @@ class EmbellishmentLevel(str, Enum):
         return {item.value for item in cls}
 
 
-class Embellishment(str, Enum):
+class Embellishment(BaseEnum):
     STONE = "Stone"
     ZARDOZI = "Zardozi"
     MIRROR_WORK = "Mirror Work"
@@ -219,7 +229,7 @@ class Embellishment(str, Enum):
         return {item.value for item in cls}
 
 
-class Occasion(str, Enum):
+class Occasion(BaseEnum):
     WEDDING_WEAR = "Wedding Wear"
     FESTIVE_WEAR = "Festive Wear"
     CASUAL_WEAR = "Casual Wear"
@@ -233,7 +243,7 @@ class Occasion(str, Enum):
         return {item.value for item in cls}
 
 
-class Style(str, Enum):
+class Style(BaseEnum):
     CASUAL = "Casual"
     FESTIVE = "Festive"
     INDO_WESTERN = "Indo-Western"
@@ -250,7 +260,7 @@ class Style(str, Enum):
         return {item.value for item in cls}
 
 
-class Gender(str, Enum):
+class Gender(BaseEnum):
     FEMALE = "Female"
     MALE = "Male"
     UNISEX = "Unisex"
@@ -261,7 +271,7 @@ class Gender(str, Enum):
         return {item.value for item in cls}
 
 
-class AgeGroup(str, Enum):
+class AgeGroup(BaseEnum):
     ADULT = "Adult"
     TEEN = "Teen"
     KIDS = "Kids"
@@ -272,7 +282,7 @@ class AgeGroup(str, Enum):
         return {item.value for item in cls}
 
 
-class SareeType(str, Enum):
+class SareeType(BaseEnum):
     BANARASI = "Banarasi"
     BOMKAI_SILK = "Bomkai Silk"
     MYSORE_SILK = "Mysore Silk"
@@ -310,7 +320,7 @@ class SareeType(str, Enum):
         return {item.value for item in cls}
 
 
-class BorderWidth(str, Enum):
+class BorderWidth(BaseEnum):
     NARROW = "Narrow"
     MEDIUM = "Medium"
     WIDE = "Wide"
@@ -321,7 +331,7 @@ class BorderWidth(str, Enum):
         return {item.value for item in cls}
 
 
-class BorderDesign(str, Enum):
+class BorderDesign(BaseEnum):
     CONTRAST = "Contrast"
     EMBROIDERED = "Embroidered"
     PLAIN = "Plain"
@@ -334,7 +344,7 @@ class BorderDesign(str, Enum):
         return {item.value for item in cls}
 
 
-class PalluDesign(str, Enum):
+class PalluDesign(BaseEnum):
     CONTRAST = "Contrast"
     ELABORATE = "Elaborate"
     MATCHING = "Matching"
@@ -347,7 +357,7 @@ class PalluDesign(str, Enum):
         return {item.value for item in cls}
 
 
-class Closure(str, Enum):
+class Closure(BaseEnum):
     BACK_HOOK = "Back Hook"
     FRONT_HOOK = "Front Hook"
     BACK_ZIPPER = "Back Zipper"
@@ -362,7 +372,7 @@ class Closure(str, Enum):
         return {item.value for item in cls}
 
 
-class Fit(str, Enum):
+class Fit(BaseEnum):
     FITTED = "Fitted"
     REGULAR = "Regular"
     RELAXED = "Relaxed"
@@ -375,9 +385,21 @@ class Fit(str, Enum):
     @classmethod
     def allowed_values(cls) -> Set[str]:
         return {item.value for item in cls}
+    
+class KurtaFit(BaseEnum):
+    ALINE = "A-Line"
+    FLARED = "Flared"
+    REGULAR = "Regular"
+    STRAIGHT = "Straight"
+    SLIM = "Slim"
+    OTHERS = "Others"
+
+    @classmethod
+    def allowed_values(cls) -> Set[str]:
+        return {item.value for item in cls}
 
 
-class Neckline(str, Enum):
+class Neckline(BaseEnum):
     ROUND_NECK = "Round Neck"
     V_NECK = "V-Neck"
     U_NECK = "U-Neck"
@@ -394,9 +416,37 @@ class Neckline(str, Enum):
     @classmethod
     def allowed_values(cls) -> Set[str]:
         return {item.value for item in cls}
+    
+class KurtaNeckline(BaseEnum):
+    ANGRAKHA = "Angrakha"
+    BOAT_NECK = "Boat Neck"
+    COLLAR = "Collar"
+    MANDARIN = "Mandarin"
+    ROUND_NECK = "Round Neck"
+    SCOOP_NECK = "Scoop Neck"
+    SQUARE_NECK = "Square Neck"
+    U_NECK = "U-Neck"
+    V_NECK = "V-Neck"
+    OTHERS = "Others"
+
+    @classmethod
+    def allowed_values(cls) -> Set[str]:
+        return {item.value for item in cls}
 
 
-class Hemline(str, Enum):
+class KurtaLength(BaseEnum):
+    ANKLE_LENGTH = "Ankle Length"
+    ABOVE_KNEE = "Above Knee"
+    KNEE_LENGTH = "Knee Length"
+    MID_CALF = "Mid-Calf"
+    OTHERS = "Others"
+
+    @classmethod
+    def allowed_values(cls) -> Set[str]:
+        return {item.value for item in cls}
+
+
+class Hemline(BaseEnum):
     STRAIGHT = "Straight"
     CURVED = "Curved"
     ASYMMETRIC = "Asymmetric"
@@ -410,7 +460,7 @@ class Hemline(str, Enum):
         return {item.value for item in cls}
 
 
-class SleeveType(str, Enum):
+class SleeveType(BaseEnum):
     SLEEVELESS = "Sleeveless"
     SHORT_SLEEVES = "Short Sleeves"
     THREE_QUARTER_SLEEVES = "Three-Quarter Sleeves"
@@ -425,7 +475,7 @@ class SleeveType(str, Enum):
         return {item.value for item in cls}
 
 
-class KurtaSet(str, Enum):
+class KurtaSet(BaseEnum):
     KURTA_ONLY = "Kurta Only"
     KURTA_WITH_DUPATTA = "Kurta with Dupatta"
     KURTA_WITH_PALAZZO = "Kurta with Palazzo"
@@ -436,3 +486,149 @@ class KurtaSet(str, Enum):
     @classmethod
     def allowed_values(cls) -> Set[str]:
         return {item.value for item in cls} 
+
+class LehengaType(BaseEnum):
+    TRADITIONAL = "Traditional"
+    CIRCULAR = "Circular"
+    A_LINE = "A-Line"
+    PANELED = "Paneled"
+    FISHTAIL = "Fishtail"
+    SHARARA = "Sharara"
+    GOWN_STYLE = "Gown Style"
+    @classmethod
+    def allowed_values(cls) -> Set[str]:
+        return {item.value for item in cls} 
+
+class LehengaSkirtStyle(BaseEnum):
+    FULL = "Full"
+    PLEATED = "Pleated"
+    TIERED = "Tiered"
+    ASYMMETRIC = "Asymmetric"
+    HIGH_LOW = "High-Low"
+    SLIT = "Slit"
+
+    @classmethod
+    def allowed_values(cls) -> Set[str]:
+        return {item.value for item in cls} 
+
+class LehengaBlouseDesign(BaseEnum):
+    CHOLI = "Choli"
+    CROP = "Crop"
+    LONG = "Long"
+    JACKET = "Jacket"
+    COLD_SHOULDER = "Cold Shoulder"
+    BACKLESS = "Backless"
+    
+    @classmethod
+    def allowed_values(cls) -> Set[str]:
+        return {item.value for item in cls} 
+
+class LehengaDupattaStyle(BaseEnum):
+    SEQUIN = "Sequin"
+    BANARASI = "Banarasi"
+    NET = "Net"
+    GEORGETTE = "Georgette"
+    PRINTED = "Printed"
+    EMBROIDERED = "Embroidered"
+        
+    @classmethod
+    def allowed_values(cls) -> Set[str]:
+        return {item.value for item in cls} 
+
+class Included(BaseEnum):
+    YES = "Yes"
+    NO = "No"
+    NOT_AVAILABLE = "Not Available"
+
+    @classmethod
+    def allowed_values(cls) -> Set[str]:
+        return {item.value for item in cls}
+    
+class DressType(BaseEnum):
+    EVENING = "Evening"
+    COCKTAIL = "Cocktail"
+    BRIDESMAID = "Bridesmaid"
+    SUNDRESS = "Sundress"
+    SHIRT = "Shirt"
+    WRAP = "Wrap"
+    BODYCON = "Bodycon"
+    OTHERS = "Others"
+    
+    @classmethod
+    def allowed_values(cls) -> Set[str]:
+        return {item.value for item in cls}
+
+class DressSilhouette(BaseEnum):
+    A_LINE = "A-Line"
+    SHEATH = "Sheath"
+    EMPIRE = "Empire"
+    FIT_FLARE = "Fit-Flare"
+    BALL_GOWN = "Ball Gown"
+    PENCIL = "Pencil"
+    ASYMMETRIC = "Asymmetric"
+    OTHERS = "Others"
+
+    @classmethod
+    def allowed_values(cls) -> Set[str]:
+        return {item.value for item in cls}
+    
+
+class ShirtType(BaseEnum):
+    FORMAL = "Formal Shirt"
+    CASUAL = "Casual Shirt"
+    DRESS = "Dress Shirt"
+    OXFORD = "Oxford Shirt"
+    DENIM = "Denim Shirt"
+    LINEN = "Linen Shirt"
+    CHECK = "Check Shirt"
+    STRIPED = "Striped Shirt"
+    OTHERS = "Others"
+
+
+    @classmethod
+    def allowed_values(cls) -> Set[str]:
+        return {item.value for item in cls}
+
+class ShirtFit(BaseEnum):
+    SLIM = "Slim"
+    REGULAR = "Regular"
+    OVERSIZED = "Oversized"
+    TAILORED = "Tailored" 
+    OTHERS = "Others"
+
+    @classmethod
+    def allowed_values(cls) -> Set[str]:
+        return {item.value for item in cls} 
+
+
+class ShirtCollar(BaseEnum):
+    BUTTON_DOWN = "Button Down"
+    SPREAD = "Spread"
+    POINT = "Point" 
+    MANDARIN = "Mandarin"
+    WING = "Wing"
+    BAND = "Band"
+    CUBAN = "Cuban"
+    TAB = "Tab"
+    OTHERS = "Others"
+
+    @classmethod
+    def allowed_values(cls) -> Set[str]:
+        return {item.value for item in cls} 
+
+class ShirtWeave(BaseEnum):
+    PLAIN = "Plain"
+    TWILL = "Twill"
+    OXFORD = "Oxford"
+    POPLIN = "Poplin"
+    HERRINGBONE = "Herringbone"
+    PINPOINT = "Pinpoint"
+    BROADCLOTH = "Broadcloth"
+    CHAMBRAY = "Chambray"
+    DOBBY = "Dobby"
+    OTHERS = "Others"
+
+    @classmethod
+    def allowed_values(cls) -> Set[str]:
+        return {item.value for item in cls} 
+    

@@ -1,6 +1,38 @@
 extends: base_config.yaml
 
 attributes:
+  shirt_type:
+    required: true
+    data_type: string
+    item_type: enum
+    allowed_values: ShirtType
+    threshold: 0.8
+    in_search_context: true
+
+  fit:
+    required: true 
+    data_type: string
+    item_type: enum
+    allowed_values: ShirtFit
+    threshold: 0.8
+    in_search_context: true
+
+  collar:
+    required: true
+    data_type: string
+    item_type: enum
+    allowed_values: ShirtCollar
+    threshold: 0.8
+    in_search_context: true
+
+  weave_pattern:
+    required: true
+    data_type: string
+    item_type: enum
+    allowed_values: ShirtWeave
+    threshold: 0.8
+    in_search_context: true
+
   sleeve_type:
     required: true
     data_type: string
@@ -9,40 +41,4 @@ attributes:
     threshold: 0.8
     in_search_context: true
 
-  neckline:
-    required: true
-    data_type: string
-    item_type: enum
-    allowed_values: Neckline
-    threshold: 0.8
-    in_search_context: true
-    
-  closure:
-    required: true
-    data_type: string
-    item_type: enum
-    allowed_values: Closure
-    threshold: 0.8
-    in_search_context: true
-    
-  fit:
-    required: true
-    data_type: string
-    item_type: enum
-    allowed_values: Fit
-    threshold: 0.8
-    in_search_context: true
 
-  hemline:
-    required: true
-    data_type: string
-    item_type: enum
-    allowed_values: Hemline
-    threshold: 0.8
-    in_search_context: true 
-
-  back_design:
-    required: true
-    data_type: string
-    item_type: string
-    in_search_context: true

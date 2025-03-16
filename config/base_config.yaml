@@ -20,11 +20,11 @@ api:
 
 paths:
   input:
-    product_data: "C:/Users/asreenivas/Downloads/02_intermediate/processed_dataframe.csv"
-    images_dir: "C:/Users/asreenivas/Downloads/02_intermediate/suta/images"
+    product_data: "/Users/aswinsreenivas/Projects/D2C Search Engine/uplyft_server/uplyft-shopify-scraper/data/02_intermediate/processed_dataframe.csv"
+    images_dir: "/Users/aswinsreenivas/Projects/D2C Search Engine/uplyft_server/uplyft-shopify-scraper/data/02_intermediate/suta/images"
   
   output:
-    base_dir: "D:/OneDrive - StarHub Ltd/5. Scripts/product-attributes/output"
+    base_dir: "/Users/aswinsreenivas/Projects/D2C Search Engine/uplyft_server/product_attributes/output"
     structure:
       attributes: "{product_type}/attributes"
       images: "{product_type}/images"
@@ -41,13 +41,13 @@ attributes:
     data_type: string
     item_type: string
     default: "suta"
-    in_search_context: true
+    in_search_context: false
 
   brand_title:
     required: true
     data_type: string
     item_type: string
-    in_search_context: true
+    in_search_context: false
 
   title:
     required: true
@@ -66,14 +66,14 @@ attributes:
     data_type: float
     item_type: float
     min: 0
-    in_search_context: true
+    in_search_context: false
 
   primary_color:
     required: true
     data_type: string
     item_type: enum
     allowed_values: Color
-    threshold: 0.8
+    threshold: 1
     in_search_context: true
 
   primary_color_hex:
@@ -114,7 +114,7 @@ attributes:
     item_type: string
     pattern: "^#([A-Fa-f0-9]{6})$"
     max_length: 3
-    in_search_context: true
+    in_search_context: false
 
   secondary_colors_detailed:
     required: true
@@ -201,7 +201,7 @@ attributes:
     required: true
     data_type: list
     item_type: string
-    in_search_context: true
+    in_search_context: false
 
   unique_design_element:
     required: true
@@ -218,7 +218,7 @@ attributes:
     allowed_values: Gender
     default: [FEMALE]
     threshold: 1.0
-    in_search_context: true
+    in_search_context: false
 
   age_group:
     required: true
@@ -227,7 +227,7 @@ attributes:
     allowed_values: AgeGroup
     default: [ADULT]
     threshold: 1.0
-    in_search_context: true
+    in_search_context: false
 
   coordinating_items:
     required: true
@@ -262,7 +262,7 @@ attributes:
     item_type: string
     in_search_context: false
 
-  product_link:
+  product_url:
     required: true
     data_type: list
     item_type: string
@@ -355,19 +355,21 @@ category_standardization:
         - 'garage_saree'
         - 'saree with blouse piece'
         - 'reversible saree'
+        - 'ready to wear'
     - name: "Blouse"
       matches: 
         - 'blouse'
         - 'garage_blouse'
-    - name: "Kurta Set"
+    - name: "Kurta"
       matches:
         - 'kurta set'
         - 'kurta'
-    - name: "Lehenga Set"
+    - name: "Lehenga"
       matches:
         - 'lehenga set'
         - 'lehengas'
         - 'semi stitched lehenga set'
+        - 'skirt, blouse and dupatta'
     - name: "Dupatta"
       matches:
         - 'dupatta'

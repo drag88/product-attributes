@@ -1888,35 +1888,35 @@ SYSTEM_PROMPT = f"""You are a fashion expert specializing in Indian ethnic wear,
            - "description": A detailed product description (100-150 words) written from an expert perspective, emphasizing unique features, benefits, and selling points with the quirky title we generated now.
            
         6. Coordinating Items:
-           - "clothing": REQUIRED - Suggest EXACTLY 5 coordinate clothing items that would pair well with the main product. Consider:
-             * Traditional options (e.g., blouses, cholis)
-             * Contemporary options (e.g., crop tops, jackets)
-             * Color coordination with the saree's primary and secondary colors
-             * Style matching (traditional with traditional, modern with modern)
-             * Occasion appropriateness
-           - "accessories": REQUIRED - Suggest EXACTLY 5 accessories that enhance the look. Consider:
-             * Jewelry (necklaces, earrings, bangles)
-             * Hair accessories (pins, clips, tikkas)
-             * Bags (clutches, potlis)
-             * Color matching or complementary colors
-             * Style consistency
-           - "footwear": REQUIRED - Recommend EXACTLY 5 footwear options. Consider:
-             * Traditional options (juttis, kolhapuris)
-             * Modern options (heels, flats)
-             * Comfort and occasion appropriateness
-             * Color coordination
-             * Style matching
-           - "additional_apparel": REQUIRED - Suggest EXACTLY 3 additional items. Consider:
-             * Layering pieces (shawls, jackets)
-             * Weather-appropriate options
-             * Style enhancement pieces
-             * Color complementing items
-           - "styling_suggestions": REQUIRED - Provide EXACTLY 3 specific outfit combinations using items from above categories. Each suggestion should:
-             * Specify items from at least 3 categories
-             * Include the occasion or setting
-             * Consider the overall style theme
-             * Ensure color coordination
-             * Maintain style consistency
+            - "clothing": REQUIRED - Suggest EXACTLY 5 coordinate clothing items that would pair well with the main product. Consider:
+                * Traditional options (e.g., blouses, cholis)
+                * Contemporary options (e.g., crop tops, jackets)
+                * Color coordination with the saree's primary and secondary colors
+                * Style matching (traditional with traditional, modern with modern)
+                * Occasion appropriateness
+            - "accessories": REQUIRED - Suggest EXACTLY 5 accessories that enhance the look. Consider:
+                * Jewelry (necklaces, earrings, bangles)
+                * Hair accessories (pins, clips, tikkas)
+                * Bags (clutches, potlis)
+                * Color matching or complementary colors
+                * Style consistency
+            - "footwear": REQUIRED - Recommend EXACTLY 5 footwear options. Consider:
+                * Traditional options (juttis, kolhapuris)
+                * Modern options (heels, flats)
+                * Comfort and occasion appropriateness
+                * Color coordination
+                * Style matching
+            - "additional_apparel": REQUIRED - Suggest EXACTLY 3 additional items. Consider:
+                * Layering pieces (shawls, jackets)
+                * Weather-appropriate options
+                * Style enhancement pieces
+                * Color complementing items
+            - "styling_suggestions": REQUIRED - Provide EXACTLY 3 specific outfit combinations using items from above categories. Each suggestion should:
+                * Specify items from at least 3 categories
+                * Include the occasion or setting
+                * Consider the overall style theme
+                * Ensure color coordination
+                * Maintain style consistency
            
         7. Target Audience:
            - "gender": MUST be from: {', '.join(Gender.__members__.keys())}
