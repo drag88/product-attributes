@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import List, Dict, Any, Union
+from typing import List, Dict, Any, Union, Type
 import re
 import logging
 from pydantic import (
@@ -44,9 +44,7 @@ class ClothingItem(BaseModel, ABC):
     )
     secondary_colors: List[Color] = Field(
         default_factory=list,
-        max_length=_attr_config.get('secondary_colors', {}).get(
-            'max_length', 3
-        )
+        max_length=_attr_config.get('secondary_colors', {}).get('max_length', 3)
     )
     secondary_color_hexes: List[str] = Field(default_factory=list)
     secondary_colors_detailed: List[ColorDetailed] = Field(
@@ -83,21 +81,13 @@ class ClothingItem(BaseModel, ABC):
     size: List[str]
     unique_design_element: List[str] = Field(
         default_factory=list,
-        min_length=_attr_config.get('unique_design_element', {}).get(
-            'min_length', 1
-        ),
-        max_length=_attr_config.get('unique_design_element', {}).get(
-            'max_length', 3
-        )
+        min_length=_attr_config.get('unique_design_element', {}).get('min_length', 1),
+        max_length=_attr_config.get('unique_design_element', {}).get('max_length', 3)
     )
     
     # Target audience
-    gender: List[Gender] = Field(
-        default_factory=lambda: [Gender.WOMEN]
-    )
-    age_group: List[AgeGroup] = Field(
-        default_factory=lambda: [AgeGroup.ADULT]
-    )
+    gender: List[Gender] = Field(default_factory=lambda: [Gender.WOMEN])
+    age_group: List[AgeGroup] = Field(default_factory=lambda: [AgeGroup.ADULT])
     
     # Additional info
     coordinating_items: Dict = Field(
@@ -112,29 +102,63 @@ class ClothingItem(BaseModel, ABC):
     
     text_embedding: List[float] = Field(
         default_factory=list,
-        description="Cohere embedding vector of search_context"
+        description="Cohere text embedding vector of search_context"
+    )
+
+    image_embedding: List[float] = Field(
+        default_factory=list,
+        description="Cohere image embedding vector of search_context"
     )
 
     @classmethod
-    def get_category_mapping(cls) -> tuple[list[tuple[re.Pattern, str]], str]:
-        """Load category standardization rules from config"""
-        config = ConfigManager.get_base_config()
-        standardization_config = config.get('category_standardization', {})
+    def _get_field_config(cls) -> Dict[str, tuple[Type[Enum], Enum, float]]:
+        """Get field configurations for validation."""
+        return {
+            'primary_color': (Color, Color.OTHERS, 0.8),
+            'primary_color_detailed': (ColorDetailed, ColorDetailed.OTHERS, 0.8),
+            'material': (Material, Material.OTHERS, 0.8),
+            'embellishment_level': (EmbellishmentLevel, EmbellishmentLevel.NONE, 0.7),
+            'pattern': (Pattern, None, 0.6),
+            'occasions': (Occasion, Occasion.OTHERS, 0.6),
+            'style': (Style, Style.OTHERS, 0.7),
+            'gender': (Gender, Gender.WOMEN, 0.9),
+            'age_group': (AgeGroup, AgeGroup.ADULT, 0.9),
+            'secondary_colors': (Color, Color.OTHERS, 0.8),
+            'secondary_colors_detailed': (ColorDetailed, ColorDetailed.OTHERS, 0.8),
+            'embellishment': (Embellishment, Embellishment.NONE, 0.6)
+        }
+
+    @field_validator(
+        'primary_color', 'primary_color_detailed', 'material',
+        'embellishment_level', 'pattern', 'occasions', 'style',
+        'gender', 'age_group', 'secondary_colors', 
+        'secondary_colors_detailed', 'embellishment',
+        mode='before'
+    )
+    @classmethod
+    def validate_fields(cls, v: Any, info: ValidationInfo) -> Any:
+        field_name = info.field_name
+        if not field_name:
+            return v
+            
+        field_config = cls._get_field_config()
+        if field_name not in field_config:
+            return v
+            
+        enum_cls, default, threshold = field_config[field_name]
         
-        patterns = []
-        for item in standardization_config.get('patterns', []):
-            try:
-                # Compile combined regex pattern
-                combined_pattern = r'\b(?:{})\b'.format('|'.join(item['matches']))
-                compiled_pattern = re.compile(combined_pattern, re.IGNORECASE)
-                patterns.append((compiled_pattern, item['name']))
-            except re.error as e:
-                logger.error(f"Invalid regex pattern for {item['name']}: {e}")
-                continue
-                
-        return (
-            patterns,
-            standardization_config.get('default_strategy', 'title_case')
+        # Handle list fields
+        if field_name in {
+            'pattern', 'occasions', 'style', 'gender', 'age_group',
+            'secondary_colors', 'secondary_colors_detailed', 'embellishment'
+        }:
+            return validate_enum_list(
+                v, enum_cls, field_name, default=default, threshold=threshold
+            )
+            
+        # Handle single enum fields
+        return validate_enum_field(
+            v, enum_cls, field_name, default=default, threshold=threshold
         )
 
     @classmethod
@@ -161,167 +185,25 @@ class ClothingItem(BaseModel, ABC):
         else:
             return category
 
-    @field_validator(
-        'primary_color', 'primary_color_detailed', 'material', 
-        mode='before'
-    )
     @classmethod
-    def validate_single_enum_fields(cls, v: Any, info: ValidationInfo) -> Enum:
-        # Default thresholds from config
-        thresholds = {}
+    def get_category_mapping(cls) -> tuple[list[tuple[re.Pattern, str]], str]:
+        """Load category standardization rules from config"""
+        config = ConfigManager.get_base_config()
+        standardization_config = config.get('category_standardization', {})
         
-        # Get thresholds from config
-        field_name = info.field_name
-        if field_name:
-            threshold = cls._attr_config.get(field_name, {}).get('threshold')
-            if threshold is not None:
-                thresholds[field_name] = threshold
-        
-        # Set default thresholds if not in config
-        if field_name and field_name not in thresholds:
-            default_thresholds = {
-                'primary_color': 0.8,
-                'primary_color_detailed': 0.8,
-                'material': 0.8
-            }
-            thresholds[field_name] = default_thresholds.get(field_name, 0.8)
-        
-        field_config = {
-            'primary_color': (
-                Color, Color.OTHERS, thresholds.get('primary_color', 0.8)
-            ),
-            'primary_color_detailed': (
-                ColorDetailed, 
-                ColorDetailed.OTHERS, 
-                thresholds.get('primary_color_detailed', 0.8)
-            ),
-            'material': (
-                Material, 
-                Material.OTHERS, 
-                thresholds.get('material', 0.8), 
-                True
-            )
-        }
-        
-        if field_name not in field_config:
-            return v
-            
-        cls_name, default, threshold, *compound = field_config[field_name]
-        return validate_enum_field(
-            v, 
-            cls_name, 
-            field_name,
-            default=default,
-            threshold=threshold,
-            allow_compound=bool(compound)
-        )
-
-    @field_validator(
-        'secondary_colors', 'secondary_colors_detailed', 
-        'occasions', 'style', 'gender', 'age_group', 
-        mode='before'
-    )
-    @classmethod
-    def validate_enum_lists(cls, v: Any, info: ValidationInfo) -> List[Enum]:
-        # Get thresholds from config
-        thresholds = {}
-        
-        # Get threshold from config for the current field
-        field_name = info.field_name
-        if field_name:
-            threshold = cls._attr_config.get(field_name, {}).get('threshold')
-            if threshold is not None:
-                thresholds[field_name] = threshold
-        
-        # Set default thresholds if not in config
-        if field_name and field_name not in thresholds:
-            default_thresholds = {
-                'secondary_colors': 0.8,
-                'secondary_colors_detailed': 0.8,
-                'occasions': 0.6,
-                'style': 0.8,
-                'gender': 0.9,
-                'age_group': 0.9
-            }
-            thresholds[field_name] = default_thresholds.get(field_name, 0.8)
-        
-        field_config = {
-            'secondary_colors': (
-                Color, Color.OTHERS, thresholds.get('secondary_colors', 0.8)
-            ),
-            'secondary_colors_detailed': (
-                ColorDetailed, ColorDetailed.OTHERS, 
-                thresholds.get('secondary_colors_detailed', 0.8)
-            ),
-            'occasions': (
-                Occasion, 
-                Occasion.OTHERS, 
-                thresholds.get('occasions', 0.6)
-            ),
-            'style': (Style, Style.OTHERS, thresholds.get('style', 0.7)),
-            'gender': (Gender, Gender.WOMEN, thresholds.get('gender', 0.9)),
-            'age_group': (
-                AgeGroup, AgeGroup.ADULT, thresholds.get('age_group', 0.9)
-            )
-        }
-        
-        if field_name not in field_config:
-            return v
-            
-        cls_name, default, threshold = field_config[field_name]
-        return validate_enum_list(v, cls_name, field_name, default, threshold)
-
-    @field_validator(
-        'primary_color_hex', 'secondary_color_hexes', 
-        'secondary_colors_detailed_hex', 'color_pairings', 
-        mode='before'
-    )
-    @classmethod
-    def validate_hex_codes(
-        cls, v: Any, info: ValidationInfo
-    ) -> Union[str, List[str]]:
-        hex_regex = r"^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"
-        
-        if info.field_name == 'primary_color_hex':
-            if not re.match(hex_regex, v):
-                raise ValueError(f"Invalid primary color hex code: {v}")
-            return v
-        
-        if not isinstance(v, list):
-            v = [v]
-            
-        for hex_code in v:
-            if not re.match(hex_regex, hex_code):
-                raise ValueError(f"Invalid hex code format: {hex_code}")
-        
-        return v
-
-    @field_validator('embellishment_level', mode='before')
-    @classmethod
-    def validate_embellishment_level(cls, v: Any, info: ValidationInfo) -> Enum:
-        return validate_enum_field(
-            v, EmbellishmentLevel, 'embellishment_level',
-            default=EmbellishmentLevel.NONE,
-            threshold=cls._attr_config.get('embellishment_level', {}).get('threshold', 0.7)
-        )
-
-    @field_validator('embellishment', mode='before')
-    @classmethod 
-    def validate_embellishment_list(cls, v: Any, info: ValidationInfo) -> List[Enum]:
-        return validate_enum_list(
-            v, Embellishment, 'embellishment',
-            default=Embellishment.NONE,
-            threshold=cls._attr_config.get('embellishment', {}).get('threshold', 0.6)
-        )
-
-    @field_validator('pattern', mode='before')
-    @classmethod
-    def validate_patterns(cls, v: Any, info: ValidationInfo) -> List[Pattern]:
-        return validate_enum_list(
-            v,
-            Pattern,
-            'pattern',
-            threshold=cls._attr_config.get('pattern', {}).get('threshold', 0.6)
+        patterns = []
+        for item in standardization_config.get('patterns', []):
+            try:
+                combined_pattern = r'\b(?:{})\b'.format('|'.join(item['matches']))
+                compiled_pattern = re.compile(combined_pattern, re.IGNORECASE)
+                patterns.append((compiled_pattern, item['name'].title()))
+            except re.error as e:
+                logger.error(f"Invalid regex pattern for {item['name']}: {e}")
+                continue
+                
+        return (
+            patterns,
+            standardization_config.get('default_strategy', 'title_case')
         )
 
     def validate_attributes(self) -> List[str]:

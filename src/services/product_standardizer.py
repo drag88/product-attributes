@@ -14,6 +14,8 @@ class ProductStandardizer:
             # Handle missing product_type
             if pd.isna(original_category):
                 original_category = ''
+            # Convert to title case before standardization
+            original_category = original_category.title()
             standardized = ClothingItem.standardize_category(original_category)
             
             return {

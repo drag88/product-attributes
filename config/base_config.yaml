@@ -254,7 +254,7 @@ attributes:
         data_type: list
         item_type: string
         max_length: 3
-    in_search_context: true
+    in_search_context: false
 
   product_image_link:
     required: true
@@ -403,8 +403,7 @@ category_standardization:
       matches:
         - 'fabric'
         - 'swaddle'
-        - 'curtains'
-        - 'bed linen'
+        - 'dhoti'
     - name: "Shirt"
       matches:
         - 'shirt'
@@ -413,7 +412,6 @@ category_standardization:
       matches:
         - 'trouser'
         - 'pants'
-        - 'dhoti'
     - name: "Jacket"
       matches:
         - 'jacket'
@@ -425,6 +423,8 @@ category_standardization:
         - 'quilts & comforters'
         - 'bunting'
         - 'table runner'
+        - 'curtains'
+        - 'bed linen'
     - name: "Gift Items"
       matches:
         - 'gift'

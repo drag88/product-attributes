@@ -116,9 +116,10 @@ def filter_products(
     available_types: List[str],
     target_types: Optional[List[str]] = None
 ) -> pd.DataFrame:
-    """
-    Filter products based on standardized product categories.
-    """
+    """Filter products based on standardized product categories."""
+    # Convert available_types to title case
+    available_types = [t.title() for t in available_types]
+    
     # Standardize all product types
     df['standardized_category'] = df['product_type'].apply(
         lambda x: ProductStandardizer.standardize_product({'product_type': x})['standardized_category']
@@ -126,6 +127,7 @@ def filter_products(
     
     # If target types specified, filter for those first
     if target_types:
+        # Convert target types to standardized form
         target_standardized = [
             ProductStandardizer.standardize_product({'product_type': t})['standardized_category']
             for t in target_types
@@ -233,17 +235,10 @@ async def main():
                 
                 # Initialize factory
                 ClothingFactory.initialize()
-                raw_available_types = ClothingFactory.get_available_types()
-                # Standardize the available types names to match our mapping
                 available_types = [
                     ClothingItem.standardize_category(t) 
-                    for t in raw_available_types.keys()
+                    for t in ClothingFactory.get_available_types()
                 ]
-                print(f"Available product types: {', '.join(available_types)}")
-                logger.info(
-                    f"Available product types: {', '.join(available_types)}",
-                    extra={"available_types": available_types}
-                )
                 perf_metrics.checkpoint("config_loading_end")
         except Exception as e:
             print(f"Error during configuration loading: {str(e)}")
@@ -323,9 +318,17 @@ async def main():
                 logger.info(f"Found product types in data: {unique_categories}")
                 
                 for category in unique_categories:
-                    if args.product_types and category not in args.product_types:
-                        logger.info(f"Skipping {category} as it's not in requested types")
-                        continue
+                    if args.product_types:
+                        # Convert both to same case for comparison
+                        standardized_input = [
+                            ProductStandardizer.standardize_product(
+                                {'product_type': t}
+                            )['standardized_category'] 
+                            for t in args.product_types
+                        ]
+                        if category not in standardized_input:
+                            logger.info(f"Skipping {category} as it's not in requested types")
+                            continue
                     
                     is_standard_category = category in available_types
                     logger.info(

@@ -3,12 +3,13 @@ import yaml
 from typing import Dict, Any, List, Optional, Set, Union, Tuple
 import logging
 from functools import lru_cache
+import warnings
 
 logger = logging.getLogger(__name__)
 
 
 class ConfigManager:
-    """Unified manager for product configurations."""
+    """Unified configuration manager."""
     
     _instance = None
     _config_dir = Path(__file__).parent.parent.parent / 'config'
@@ -422,14 +423,11 @@ class ConfigManager:
                     required_attrs.append(attr_name)
         
         return required_attrs
-
-
-# For backward compatibility
-class ProductConfigManager(ConfigManager):
-    """Legacy class for backward compatibility."""
-    pass
-
-
-class ConfigLoader(ConfigManager):
-    """Legacy class for backward compatibility."""
-    pass 
+    
+    def __init_subclass__(cls) -> None:
+        warnings.warn(
+            "Subclassing ConfigManager is deprecated. Use ConfigManager directly.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        super().__init_subclass__() 

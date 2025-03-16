@@ -1,0 +1,51 @@
+extends: base_config.yaml
+
+attributes:
+  trouser_type:
+    required: true
+    data_type: string
+    item_type: enum
+    allowed_values: TrouserType
+    threshold: 0.8
+    in_search_context: true
+
+  style:
+    required: true
+    data_type: string
+    item_type: enum
+    allowed_values: TrouserStyle
+    threshold: 0.8
+    in_search_context: true
+
+  rise:
+    required: true
+    data_type: string
+    item_type: enum
+    allowed_values: TrouserRise
+    threshold: 0.8
+    in_search_context: true
+
+  length:
+    required: true
+    data_type: string
+    item_type: enum
+    allowed_values: TrouserLength
+    threshold: 0.8
+    in_search_context: true
+
+  pleat_type:
+    required: true
+    data_type: string
+    item_type: enum
+    allowed_values: TrouserPleat
+    threshold: 0.8
+    in_search_context: true
+
+  closure:
+    required: true
+    data_type: string
+    item_type: enum
+    allowed_values: TrouserClosure
+    threshold: 0.8
+    in_search_context: true
+

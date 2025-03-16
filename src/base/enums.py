@@ -631,4 +631,78 @@ class ShirtWeave(BaseEnum):
     @classmethod
     def allowed_values(cls) -> Set[str]:
         return {item.value for item in cls} 
-    
+
+
+class TrouserType(BaseEnum):
+    FORMAL = "Formal"
+    CASUAL = "Casual"
+    BUSINESS = "Business"
+    PARTY = "Party"
+    OTHERS = "Others"
+
+    @classmethod
+    def allowed_values(cls) -> Set[str]:
+        return {item.value for item in cls}
+
+
+class TrouserStyle(BaseEnum):
+    STRAIGHT = "Straight"
+    SLIM = "Slim"
+    WIDE_LEG = "Wide Leg"
+    BOOTCUT = "Bootcut"
+    CIGARETTE = "Cigarette"
+    PLEATED = "Pleated"
+    CHINOS = "Chinos"
+    OTHERS = "Others"
+
+    @classmethod
+    def allowed_values(cls) -> Set[str]:
+        return {item.value for item in cls}
+
+
+class TrouserRise(BaseEnum):
+    LOW = "Low Rise"
+    MID = "Mid Rise"
+    HIGH = "High Rise"
+    OTHERS = "Others"
+
+    @classmethod
+    def allowed_values(cls) -> Set[str]:
+        return {item.value for item in cls}
+
+
+class TrouserLength(BaseEnum):
+    ANKLE = "Ankle Length"
+    FULL = "Full Length"
+    CROPPED = "Cropped"
+    REGULAR = "Regular"
+    OTHERS = "Others"
+
+    @classmethod
+    def allowed_values(cls) -> Set[str]:
+        return {item.value for item in cls}
+
+class TrouserPleat(BaseEnum):
+    FLAT_FRONT = "Flat Front"
+    SINGLE_PLEAT = "Single Pleat"
+    DOUBLE_PLEAT = "Double Pleat"
+    OTHERS = "Others"
+
+    @classmethod
+    def allowed_values(cls) -> Set[str]:
+        return {item.value for item in cls}
+
+
+class TrouserClosure(BaseEnum):
+    BUTTON = "Button"
+    ZIP = "Zip"
+    HOOK = "Hook"
+    DRAWSTRING = "Drawstring"
+    SNAP_BUTTON = "Snap Button"
+    BUTTON_AND_ZIP = "Button And Zip"
+    HOOK_AND_BAR = "Hook And Bar"
+    OTHERS = "Others"
+
+    @classmethod
+    def allowed_values(cls) -> Set[str]:
+        return {item.value for item in cls}

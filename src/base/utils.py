@@ -3,16 +3,15 @@ from typing import Type, Dict, List, Any, Set, Optional
 import base64
 import mimetypes
 import logging
-import yaml
 from pathlib import Path
 import importlib
 from functools import lru_cache
+from src.utils.config_loader import ConfigManager
 from src.base.enums import (
     Color, ColorDetailed, Pattern, Material, 
     EmbellishmentLevel, Embellishment, Occasion, 
     Style, Gender, AgeGroup
 )
-import os
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +26,6 @@ class EnumRegistry:
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
-            # Don't initialize immediately to avoid circular imports
             cls._initialized = False
         return cls._instance
     
@@ -37,7 +35,6 @@ class EnumRegistry:
         if cls._instance is None:
             cls._instance = cls()
         
-        # Initialize if not already done
         if not cls._initialized:
             cls._load_mappings_from_config()
             cls._initialized = True
@@ -48,9 +45,7 @@ class EnumRegistry:
     def _load_mappings_from_config(cls) -> None:
         """Load enum mappings from configuration files."""
         try:
-            # Import here to avoid circular imports
-            from src.utils.config_loader import ProductConfigManager
-            config_manager = ProductConfigManager.get_instance()
+            config_manager = ConfigManager.get_instance()
             
             # Load base mappings
             base_config = config_manager.get_base_config()
@@ -85,32 +80,39 @@ class EnumRegistry:
         
         for field_name, attr_config in attributes.items():
             # Check if this is an enum field
-            if attr_config.get('type') == 'enum':
-                enum_class_name = attr_config.get('values')
+            if attr_config.get('item_type') == 'enum':
+                enum_class_name = attr_config.get('allowed_values')
                 if enum_class_name:
                     try:
                         enum_class = getattr(enums_module, enum_class_name)
                         if issubclass(enum_class, Enum):
                             enum_mappings[field_name] = enum_class
-                    except (AttributeError, TypeError):
+                            logger.debug(
+                                f"Added enum mapping for {field_name}: {enum_class_name}"
+                            )
+                    except (AttributeError, TypeError) as e:
                         logger.warning(
                             f"Could not find enum class '{enum_class_name}' "
-                            f"for field '{field_name}'"
+                            f"for field '{field_name}': {e}"
                         )
             
             # Check for list fields with enum items
-            elif (attr_config.get('type') == 'list' and 
+            elif (attr_config.get('data_type') == 'list' and 
                   attr_config.get('item_type') == 'enum'):
-                enum_class_name = attr_config.get('values')
+                enum_class_name = attr_config.get('allowed_values')
                 if enum_class_name:
                     try:
                         enum_class = getattr(enums_module, enum_class_name)
                         if issubclass(enum_class, Enum):
                             enum_mappings[field_name] = enum_class
-                    except (AttributeError, TypeError):
+                            logger.debug(
+                                f"Added enum mapping for list field {field_name}: "
+                                f"{enum_class_name}"
+                            )
+                    except (AttributeError, TypeError) as e:
                         logger.warning(
                             f"Could not find enum class '{enum_class_name}' "
-                            f"for list field '{field_name}'"
+                            f"for list field '{field_name}': {e}"
                         )
         
         return enum_mappings

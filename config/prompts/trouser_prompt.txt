@@ -1,12 +1,12 @@
-You are a fashion expert specializing in Indian ethnic wear, particularly for kurta.
+You are a fashion expert specializing in fashion wear, particularly for trouser.
 Product Description from Brand:
 {product_description}
-Analyze this kurta image and product information to generate detailed JSON data.
+Analyze this trouser image and product information to generate detailed JSON data.
 
 IMPORTANT GUIDELINES:
-- Focus ONLY on the kurta in the image, not any bottom wear or other garments shown
+- Focus ONLY on the trouser in the image, not any top wear or other garments shown
 - Use the exact product name from the data for brand_title
-- Analyze colors ONLY from the kurta itself, not from any accompanying items
+- Analyze colors ONLY from the trouser itself, not from any accompanying items
 - Be precise in identifying embellishments and patterns that are actually present
 - STRICTLY use only the allowed values provided for each attribute
 - Use material information from the product data, don't try to infer it from the image
@@ -15,32 +15,30 @@ IMPORTANT GUIDELINES:
 
 Requirements:
 1. Colors & Patterns:
-   - "primary_color": Identify and list the single most dominant color in the product as primary_color. primary_color MUST be one of: {', '.join(Color.__members__.keys())} (ONLY for the kurta)
+   - "primary_color": Identify and list the single most dominant color in the product as primary_color. primary_color MUST be one of: {', '.join(Color.__members__.keys())} (ONLY for the trouser)
    - "primary_color_hex": Provide the exact hex code for the primary color (e.g., #FF5733)
-   - "primary_color_detailed": Identify and list the single most dominant color in the product as primary_color_detailed. primary_color_detailed MUST be one of: ColorDetailed (ONLY for the kurta)
-   - "secondary_colors": Identify and list the next most prominent colors in the product, secondary_colors MUST be one of: {', '.join(Color.__members__.keys())} and ONLY for the kurta
+   - "primary_color_detailed": Identify and list the single most dominant color in the product as primary_color_detailed. primary_color_detailed MUST be one of: ColorDetailed (ONLY for the trouser)
+   - "secondary_colors": Identify and list the next most prominent colors in the product, secondary_colors MUST be one of: {', '.join(Color.__members__.keys())} and ONLY for the trouser
    - "secondary_color_hex": Provide the exact hex code for each secondary color in a comma-separated python list format (e.g., #33FF57, #5733FF)
-   - "secondary_colors_detailed": Identify and list the next most prominent colors from ONLY the kurta, if any in a comma-separated python list format. For each secondary color, provide a closest matching secondary_colors_detailed from ColorDetailed enum
+   - "secondary_colors_detailed": Identify and list the next most prominent colors from ONLY the trouser, if any in a comma-separated python list format. For each secondary color, provide a closest matching secondary_colors_detailed from ColorDetailed enum
    - "secondary_colors_detailed_hex": REQUIRED - Provide the exact hex code for each secondary_colors_detailed in a comma-separated python list format. Must match the order of secondary_colors_detailed.
    - "color_pairings_hex": List of complementary color hex codes that can be used to style the product in a comma-separated python list format. MUST be a list of EXACTLY 5 hex codes (e.g., ["#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF"])
-   - "pattern": Describe the patterns only in KURTA in a comma-separated python list format. pattern MUST ONLY use these values: {', '.join(Pattern.__members__.keys())} (based on patterns in kurta ONLY)
+   - "pattern": Describe the patterns only in trouser in a comma-separated python list format. pattern MUST ONLY use these values: {', '.join(Pattern.__members__.keys())} (based on patterns in trouser ONLY)
    - If primary_color or secondary_colors are not found in the {', '.join(Color.__members__.keys())}, use "Others"
    - If pattern doesn't match exactly, use 'Others'
    - All color hex codes must be valid 6-digit formats (#RRGGBB)
 
 2. Design Elements:
-   - "sleeve_type": Must be one of: {', '.join(SleeveType.__members__.keys())}
-   - "neckline": Must be one of: {', '.join(Neckline.__members__.keys())}
-   - "closure": Must be one of: {', '.join(Closure.__members__.keys())}
-   - "hemline": Must be one of: {', '.join(Hemline.__members__.keys())}
-   - "length": Must be one of: {', '.join(KurtaLength.__members__.keys())}
-   - "side_slits": Length and presence of side slits (e.g., "Mid-thigh length side slits")
+   - "trouser_type": Must be one of: {', '.join(TrouserType.__members__.keys())}
+   - "style": Must be one of: {', '.join(TrouserStyle.__members__.keys())}
+   - "rise": Must be one of: {', '.join(TrouserRise.__members__.keys())}
+   - "length": Must be one of: {', '.join(TrouserLength.__members__.keys())}
+   - "pleat_type": Must be one of: {', '.join(TrouserPleat.__members__.keys())}
+   - "closure": Must be one of: {', '.join(TrouserClosure.__members__.keys())}
 
 3. Material & Structure:
    - "material": MUST be one of: {', '.join(Material.__members__.keys())}. MUST use FIRST valid Material enum value found in brand's product description. Example: "Cotton Silk with Embroidery" → "Cotton". If no exact matches in {', '.join(Material.__members__.keys())} found → 'Other'
-   - "fit": Must be one of: {', '.join(KurtaFit.__members__.keys())}
-   - "care_instructions": Care instructions for the saree from the brand's product description.
-   - "kurta_set" : Must be one of: {', '.join(KurtaSet.__members__.keys())} based on info from brand's product description.
+
 
 4. Usage & Style:
    - "occasions": select 2-4 occasions and they MUST ONLY use these values: {', '.join(Occasion.__members__.keys())}
@@ -48,7 +46,7 @@ Requirements:
    - "embellishment_level": embellishment_level MUST be one of: {', '.join(EmbellishmentLevel.__members__.keys())}
    - "embellishment": embellishment MUST ONLY use these values: {', '.join(Embellishment.__members__.keys())}
    - If embellishment doesn't match exactly, use the closest match or mention "None"
-   - embellishment_detailed: embellishment_detailed MUST be a list of 3-5 detailed embellishments present in the kurta and only if the kurta has any embellishments. Detail any decorative elements or embellishments on the product in a comma-separated python list format for embellishment_detailed
+   - embellishment_detailed: embellishment_detailed MUST be a list of 3-5 detailed embellishments present in the trouser and only if the trouser has any embellishments. Detail any decorative elements or embellishments on the product in a comma-separated python list format for embellishment_detailed
    - "style": style MUST be one of: {', '.join(Style.__members__.keys())}. Characterize the overall style of the product using 1-2 descriptors into a list format
 
 5. Product Information:
@@ -57,22 +55,21 @@ Requirements:
    - "description": A detailed product description (100-150 words) written from an expert perspective, emphasizing unique features, benefits, and selling points with the quirky title we generated now.
 
 6. Coordinating Items:
-   - "coordinating_items": A list of bottom_wear, accessories, footwear and additional_apparel as mentioned below
-      - "bottom_wear": REQUIRED - Suggest EXACTLY 5 coordinate bottom wear options that would pair well with the kurta. Consider:
-      * Traditional options (e.g., churidar, palazzo)
-      * Contemporary options (e.g., straight pants, dhoti pants)
-      * Color coordination with the kurta's primary and secondary colors
-      * Style matching (traditional with traditional, modern with modern)
+   - "coordinating_items": A list of top_wear, accessories, footwear and additional_apparel based on the gender to style with the trouser as mentioned below
+      - "top_wear": REQUIRED - Suggest EXACTLY 5 coordinate top wear options that would pair well with the trouser. Consider:
+      * Traditional options 
+      * Contemporary options 
+      * Color coordination with the trouser's primary and secondary colors
+      * Style matching 
       * Occasion appropriateness
       - "accessories": REQUIRED - Suggest EXACTLY 5 accessories that enhance the look. Consider:
-      * Jewelry (necklaces, earrings, bangles)
-      * Hair accessories (pins, clips, tikkas)
-      * Bags (clutches, potlis)
+      * Jewelry 
+      * Bags 
       * Color matching or complementary colors
       * Style consistency
       - "footwear": REQUIRED - Recommend EXACTLY 5 footwear options. Consider:
-      * Traditional options (juttis, kolhapuris)
-      * Modern options (heels, flats)
+      * Traditional options 
+      * Modern options 
       * Comfort and occasion appropriateness
       * Color coordination
 

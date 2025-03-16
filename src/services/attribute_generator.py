@@ -8,9 +8,6 @@ import time
 import pandas as pd
 import traceback
 from importlib import import_module
-from src.base.clothing_item import ClothingItem
-from src.factories.clothing_factory import ClothingFactory
-
 from .api_service import APIService
 from src.base.utils import (
     create_image_message,
@@ -22,25 +19,14 @@ from src.utils.validation import (
 )
 from src.utils.config_loader import ConfigManager
 
-
 logger = logging.getLogger(__name__)
-
-# Temporarily add for debugging
 logger.setLevel(logging.DEBUG)
-logging.getLogger("src.services.api_service").setLevel(logging.DEBUG)
-
-# Force debug logging for this module
-logger.setLevel(logging.DEBUG)
-logging.getLogger("src.services.attribute_generator").setLevel(logging.DEBUG)
-logging.getLogger("src.services.api_service").setLevel(logging.DEBUG)
-
 
 class AttributeGenerator:
     def __init__(self, api_service: APIService, config: Dict, available_types: List[str]):
         self.api_service = api_service
         self.config = config
-        self.available_types = available_types  # Store available types
-        # Resolve prompts directory relative to project root
+        self.available_types = available_types
         self.prompts_dir = Path(__file__).parent.parent.parent / config.get("prompts", {}).get("dir", "config/prompts")
         self._enum_mappings = {}
         
@@ -70,9 +56,7 @@ class AttributeGenerator:
         
         # Register enums from configuration
         logger.info("Starting enum registration")
-        logger.info(f"Initial config: {self.config.get('attributes', {}).keys()}")
         self._register_enums_from_config()
-        logger.info(f"Registered enums: {list(self._enum_mappings.keys())}")
         
         # Only log model info if api_service is provided
         if api_service is not None:
@@ -118,7 +102,6 @@ class AttributeGenerator:
         source: str
     ) -> None:
         """Register enums for a set of attributes."""
-        logger.info(f"Registering enums for source: {source}")
         for field_name, field_config in attributes.items():
             if not isinstance(field_config, dict):
                 continue
@@ -133,7 +116,6 @@ class AttributeGenerator:
                 # For both cases, we need to get the enum class name from allowed_values
                 enum_name = field_config.get('allowed_values')
                 if enum_name:
-                    logger.info(f"Found enum field: {field_name} -> {enum_name}")
                     self._register_enum_for_field(
                         field_name,
                         enum_name,
@@ -154,13 +136,11 @@ class AttributeGenerator:
             try:
                 enum_module = import_module('src.base.enums')
                 enum_class = getattr(enum_module, enum_name)
-                logger.info(f"Found enum {enum_name} in base.enums")
             except (ImportError, AttributeError):
                 # If not in base.enums, try product-specific enums
                 try:
                     enum_module = import_module(f'src.models.{source}.enums')
                     enum_class = getattr(enum_module, enum_name)
-                    logger.info(f"Found enum {enum_name} in {source}.enums")
                 except (ImportError, AttributeError):
                     logger.error(
                         f"Could not find enum class {enum_name} "
@@ -170,10 +150,6 @@ class AttributeGenerator:
             
             if issubclass(enum_class, Enum):
                 self._enum_mappings[field_name] = enum_class
-                logger.info(
-                    f"Successfully registered enum {enum_name} for field {field_name} "
-                    f"from {source}"
-                )
             else:
                 logger.error(
                     f"{enum_name} is not an Enum class "

@@ -4,9 +4,9 @@ from pathlib import Path
 import yaml
 import importlib
 import logging
-from src.base import ClothingItem
+from src.base.clothing_item import ClothingItem
 from src.base.utils import EnumRegistry
-from src.utils.config_loader import ProductConfigManager
+from src.utils.config_loader import ConfigManager
 from src.models.saree import Saree
 
 logger = logging.getLogger(__name__)
@@ -16,22 +16,33 @@ class ClothingFactory:
     
     _registry: Dict[str, Type[ClothingItem]] = {}
     _enum_registry = EnumRegistry.get_instance()
-    _config_manager = ProductConfigManager.get_instance()
+    _config_manager = ConfigManager.get_instance()
     
     @classmethod
-    def initialize(cls):
+    def initialize(cls) -> None:
         """Initialize the factory by discovering and registering all product types."""
-        # Clear existing registry to allow reinitialization
-        cls._registry.clear()
-        
-        # Get available product types from config manager
-        product_types = cls._config_manager.get_available_product_types()
-        
-        # Dynamically import and register product classes
-        for product_type in product_types:
-            cls._register_product_type(product_type)
+        try:
+            # Clear existing registry to allow reinitialization
+            cls._registry.clear()
             
-        logger.info(f"Registered product types: {list(cls._registry.keys())}")
+            # Get available product types from config manager
+            product_types = cls._config_manager.get_available_product_types()
+            
+            # Dynamically import and register product classes
+            for product_type in product_types:
+                cls._register_product_type(product_type)
+                
+            if not cls._registry:
+                logger.warning("No product types were registered during initialization")
+            else:
+                logger.info(
+                    f"Successfully registered {len(cls._registry)} product types: "
+                    f"{list(cls._registry.keys())}"
+                )
+                
+        except Exception as e:
+            logger.error(f"Error during factory initialization: {str(e)}")
+            raise
         
     @classmethod
     def _register_product_type(cls, product_type: str) -> None:
@@ -64,19 +75,20 @@ class ClothingFactory:
         """Get enum type from attribute config."""
         # First try to get from EnumRegistry
         enum_mappings = cls._enum_registry.get_enum_mappings(product_type)
+        logger.info(f"Enum mappings: {enum_mappings}")
         enum_type = enum_mappings.get(field_name)
         
         if enum_type:
             return enum_type
             
         # Fallback to config-based lookup if not found in registry
-        if (attr_config.get('type') == 'enum' or 
-            (attr_config.get('type') == 'list' and 
+        if (attr_config.get('item_type') == 'enum' or 
+            (attr_config.get('data_type') == 'list' and 
              attr_config.get('item_type') == 'enum')):
             
             # Import all enum classes
             enums_module = importlib.import_module('src.base.enums')
-            enum_class_name = attr_config.get('values')
+            enum_class_name = attr_config.get('allowed_values')
             
             if enum_class_name:
                 try:
@@ -91,30 +103,43 @@ class ClothingFactory:
     @classmethod
     def register(cls, product_type: str, product_class: Type[ClothingItem]) -> None:
         """Register a product type with its corresponding class."""
-        cls._registry[product_type] = product_class
+        cls._registry[product_type.lower()] = product_class
         logger.info(f"Registered product type: {product_type}")
     
     @classmethod
-    def create(cls, product_type: str, data: Dict[str, Any]) -> Optional[ClothingItem]:
-        """Create a clothing item of the specified type."""
-        try:
-            if product_type in cls._registry:
-                # Use specific product class if available
-                product_class = cls._registry[product_type]
-            else:
-                # Fallback to base ClothingItem for undefined types
-                logger.warning(f"Using base ClothingItem for undefined type: {product_type}")
-                product_class = ClothingItem
+    def get_product_class(cls, product_type: str) -> Optional[Type[ClothingItem]]:
+        """Get the class for a product type."""
+        return cls._registry.get(product_type.lower())
+    
+    @classmethod
+    def create_product(cls, product_type: str, **kwargs) -> Optional[ClothingItem]:
+        """Create a product instance of the specified type."""
+        if product_type in cls._registry:
+            # Use specific product class if available
+            product_class = cls._registry[product_type]
+        else:
+            # Fallback to base ClothingItem for undefined types
+            logger.warning(f"Using base ClothingItem for undefined type: {product_type}")
+            product_class = ClothingItem
             
-            return product_class(**data)
+        try:
+            # Get product-specific config
+            product_config = cls._config_manager.get_product_config(product_type)
+            if not product_config:
+                logger.error(f"No configuration found for {product_type}")
+                return None
+                
+            # Create product instance
+            return product_class(**kwargs)
+            
         except Exception as e:
             logger.error(f"Error creating {product_type}: {str(e)}")
             return None
     
     @classmethod
-    def get_available_types(cls) -> Dict[str, Type[ClothingItem]]:
-        """Get all registered product types."""
-        return cls._registry.copy()
+    def get_available_types(cls) -> list[str]:
+        """Get list of registered product types."""
+        return list(cls._registry.keys())
     
     @classmethod
     def get_enum_mappings(cls, product_type: str) -> Dict[str, Type[Enum]]:
