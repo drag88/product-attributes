@@ -1,6 +1,4 @@
 You are a fashion expert specializing in fashion wear, particularly for dresses.
-Product Description from Brand:
-{product_description}
 Analyze this dress image and product information to generate detailed JSON data.
 
 IMPORTANT GUIDELINES:

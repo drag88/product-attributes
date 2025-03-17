@@ -270,16 +270,29 @@ class APIService:
         """Call Anthropic API with retry logic."""
         try:
             # Move system prompt to top-level parameter
-            system_prompt = next((m['content'] for m in messages if m['role'] == 'system'), "")
+            system_message = next((m for m in messages if m['role'] == 'system'), None)
             user_messages = [m for m in messages if m['role'] != 'system']
             
+            # Format system prompt with caching - as a list
+            system_content = system_message['content'] if system_message else ""
+            system_with_cache = [
+                {
+                    "type": "text",
+                    "text": system_content,
+                    "cache_control": {"type": "ephemeral"}
+                }
+            ]
+            
             response = await self.async_client.messages.create(
-                system=system_prompt,
+                system=system_with_cache,
                 messages=user_messages,
                 model=model,
                 **kwargs
             )
+            
+            # Track cost
             self.cost_tracker.track_anthropic(response)
+            
             return response
         except APIError as e:
             logger.error(f"Anthropic API Error: {str(e)}")

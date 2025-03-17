@@ -191,7 +191,13 @@ def parse_args() -> argparse.Namespace:
         "--product-types",
         type=str,
         nargs="+",
-        help="Product types to process (default: all available types)"
+        help="Product types to process (omit to process all available types)"
+    )
+    
+    parser.add_argument(
+        "--all-products",
+        action="store_true",
+        help="Process all product types (overrides --product-types)"
     )
     
     parser.add_argument(
@@ -260,10 +266,25 @@ async def main():
                     extra={"product_count": len(df)}
                 )
                 
-                # Filter for target product types
-                print(f"Filtering products for types: {args.product_types}")
-                logger.info(f"Filtering products for types: {args.product_types}")
-                df = filter_products(df, available_types, args.product_types)
+                # Determine if we're processing all products
+                process_all = args.all_products or not args.product_types
+                
+                if process_all:
+                    logger.info("Processing ALL product types")
+                    print("Processing ALL product types")
+                else:
+                    logger.info(
+                        f"Processing SPECIFIC product types: {args.product_types}",
+                        extra={"requested_types": args.product_types}
+                    )
+                    print(f"Processing SPECIFIC product types: {args.product_types}")
+                
+                # Filter for target product types (or all if specified)
+                df = filter_products(
+                    df, 
+                    available_types, 
+                    None if process_all else args.product_types
+                )
                 
                 if df.empty:
                     print("No products found to process")
@@ -318,7 +339,7 @@ async def main():
                 logger.info(f"Found product types in data: {unique_categories}")
                 
                 for category in unique_categories:
-                    if args.product_types:
+                    if not process_all and args.product_types:
                         # Convert both to same case for comparison
                         standardized_input = [
                             ProductStandardizer.standardize_product(

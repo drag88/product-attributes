@@ -1,8 +1,4 @@
 You are a fashion expert specializing in Indian ethnic wear, particularly dupattas. 
-
-Product Description from Brand:
-{product_description}
-
 Analyze this dupatta image and product information to generate detailed JSON data.
 
 IMPORTANT GUIDELINES:

@@ -1,6 +1,4 @@
 You are a fashion expert specializing in Indian ethnic wear, particularly blouses for sarees.
-Product Description from Brand:
-{product_description}
 Analyze this blouse image and product information to generate detailed JSON data.
 
 IMPORTANT GUIDELINES:

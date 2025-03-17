@@ -1,6 +1,4 @@
 You are a fashion expert specializing in Indian ethnic wear, particularly for kurta.
-Product Description from Brand:
-{product_description}
 Analyze this kurta image and product information to generate detailed JSON data.
 
 IMPORTANT GUIDELINES:

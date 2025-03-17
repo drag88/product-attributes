@@ -164,28 +164,55 @@ class AttributeGenerator:
     def _load_prompt(self, product_type: str, product_data: Dict[str, Any]) -> str:
         """Load and populate prompt with dynamic enum values and product data."""
         try:
-            # Convert to lowercase and append _prompt suffix
+            # Load the base prompt
             prompt_filename = f"{product_type.lower()}_prompt"
             prompt_path = self.prompts_dir / f"{prompt_filename}.txt"
             
             with open(prompt_path) as f:
                 prompt = f.read().strip()
 
-            # Get all enums from src.base.enums
+            # Add explicit output format instructions at the end of the prompt
+            output_format_instructions = """
+            IMPORTANT OUTPUT FORMAT:
+            Return a flat JSON structure without category headers like "colors_and_patterns" or "usage_and_style".
+            All attributes should be at the top level of the JSON object.
+            
+            Example of CORRECT format:
+            {
+                "primary_color": "Blue",
+                "secondary_colors": ["White", "Gold"],
+                "pattern": ["Floral"],
+                "material": "Silk",
+                "occasions": ["Festive Wear", "Party Wear"],
+                ...
+            }
+            
+            Example of INCORRECT format (DO NOT USE):
+            {
+                "colors_and_patterns": {
+                    "primary_color": "Blue",
+                    "secondary_colors": ["White", "Gold"],
+                    "pattern": ["Floral"]
+                },
+                "material_and_structure": {
+                    "material": "Silk"
+                },
+                ...
+            }
+            
+            Return only valid JSON wrapped in <json></json> tags.
+            """
+            
+            prompt += output_format_instructions
+
+            # Replace enum placeholders in the prompt
             enum_module = import_module('src.base.enums')
             
-            # Replace enum placeholders in the prompt
             for name, obj in vars(enum_module).items():
                 if isinstance(obj, type) and issubclass(obj, Enum) and obj != Enum:
-                    # Create formatted string of enum values
                     enum_values = "'" + "', '".join(v.value for v in obj) + "'"
-                    # Replace both patterns
                     prompt = prompt.replace(f"{{', '.join({name}.__members__.keys())}}", enum_values)
                     prompt = prompt.replace(f"{{{name}}}", enum_values)
-
-            # Replace product data placeholders
-            product_description = product_data.get('description', 'No description available')
-            prompt = prompt.replace("{product_description}", product_description)
 
             return prompt
             
@@ -562,14 +589,26 @@ class AttributeGenerator:
                     if image_data_url:
                         print(f"Successfully converted image to data URL for product {product_id}")
                         logger.debug(f"Successfully converted image to data URL for product {product_id}")
-                        # Replace text message with image message
-                        messages[1] = create_image_message(image_data_url)
+                        
+                        # Get just the product description
+                        description = product_data.get("description", "No description available")
+                        
+                        # Create a multipart message with both description and image
+                        image_message = create_image_message(image_data_url)
+                        
+                        # Replace the original message with a multipart message
+                        messages[1] = {
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": description},
+                                image_message["content"][0]  # Add the image part
+                            ]
+                        }
                 except Exception as e:
                     print(f"Error processing image for product {product_id}: {str(e)}")
                     logger.error(f"Error processing image: {str(e)}")
             
             # Generate embeddings
-            text_embedding = await self._generate_text_embedding(product_details)
             image_embedding = None
             
             if image_path:
@@ -707,41 +746,52 @@ class AttributeGenerator:
             return None
 
     def _extract_json_response(self, content: str) -> dict:
-        """Extract JSON from LLM response.
-        
-        Args:
-            content: Raw response content from LLM
-            
-        Returns:
-            Extracted JSON as dict or empty dict if extraction failed
-        """
+        """Extract JSON from LLM response and ensure correct structure."""
         try:
-            # Try to find JSON within <json> tags first
+            # Extract JSON using existing patterns
             json_pattern = r'<json>(.*?)</json>'
             json_match = re.search(json_pattern, content, re.DOTALL)
             
             if json_match:
                 json_str = json_match.group(1).strip()
-                return json.loads(json_str)
+                data = json.loads(json_str)
+            else:
+                # Try other patterns as fallback
+                json_pattern = r'```json\s*(.*?)\s*```'
+                json_match = re.search(json_pattern, content, re.DOTALL)
+                
+                if json_match:
+                    json_str = json_match.group(1).strip()
+                    data = json.loads(json_str)
+                else:
+                    # Try to find any JSON block with curly braces
+                    json_pattern = r'\{.*\}'
+                    json_match = re.search(json_pattern, content, re.DOTALL)
+                    
+                    if json_match:
+                        json_str = json_match.group(0).strip()
+                        data = json.loads(json_str)
+                    else:
+                        # If no JSON found, try to parse the entire content
+                        data = json.loads(content)
             
-            # Try to find JSON within ```json blocks
-            json_pattern = r'```json\s*(.*?)\s*```'
-            json_match = re.search(json_pattern, content, re.DOTALL)
+            # Check if the response has nested structure and flatten it if needed
+            if any(isinstance(value, dict) for value in data.values()):
+                logger.warning("Response contains nested structure, flattening...")
+                flattened_data = {}
+                
+                # Flatten the nested structure
+                for category, attributes in data.items():
+                    if isinstance(attributes, dict):
+                        for attr_name, attr_value in attributes.items():
+                            flattened_data[attr_name] = attr_value
+                    else:
+                        flattened_data[category] = attributes
+                
+                return flattened_data
             
-            if json_match:
-                json_str = json_match.group(1).strip()
-                return json.loads(json_str)
-            
-            # Try to find any JSON block with curly braces
-            json_pattern = r'\{.*\}'
-            json_match = re.search(json_pattern, content, re.DOTALL)
-            
-            if json_match:
-                json_str = json_match.group(0).strip()
-                return json.loads(json_str)
-            
-            # If no JSON found, try to parse the entire content
-            return json.loads(content)
+            # Return the data if it's already flat
+            return data
             
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse JSON: {str(e)}")

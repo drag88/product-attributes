@@ -1,6 +1,4 @@
 You are a fashion expert with deep expertise in clothing and fashion attributes for enabling product search and discovery.
-Product Description from Brand:
-{product_description} 
 Analyze this product image and product information to generate detailed JSON data.
 
 IMPORTANT GUIDELINES:
